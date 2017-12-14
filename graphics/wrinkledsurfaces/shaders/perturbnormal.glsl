@@ -1,0 +1,61 @@
+/*
+ * This file is part of the Visual Computing Library (VCL) release under the
+ * MIT license.
+ *
+ * Copyright (c) 2017 Basil Fierz
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+#ifndef GLSL_PERTURBNORMAL
+#define GLSL_PERTURBNORMAL
+
+// Derivative maps - bump mapping unparametrized surfaces by Morten Mikkelsen
+// http://mmikkelsen3d.blogspot.sk/2011/07/derivative-maps.html
+
+// Evaluate the derivative of the height w.r.t. screen-space using forward differencing (listing 2)
+
+vec2 dHdxy_fwd(sampler2D bump_map, vec2 uv, float scale)
+{
+	vec2 dSTdx = dFdx(uv);
+	vec2 dSTdy = dFdy(uv);
+
+	float h   = scale * texture(bump_map, uv).x;
+	float dBx = scale * texture(bump_map, uv + dSTdx).x - h;
+	float dBy = scale * texture(bump_map, uv + dSTdy).x - h;
+
+	return vec2(dBx, dBy);
+}
+
+// Surface normal is normalized
+vec3 perturbNormal(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy)
+{
+	vec3 SigmaX = dFdx(surf_pos);
+	vec3 SigmaY = dFdy(surf_pos);
+	vec3 N = surf_norm;
+
+	vec3 R1 = cross(SigmaY, N);
+	vec3 R2 = cross(N, SigmaX);
+
+	float det = dot(SigmaX, R1);
+
+	vec3 grad = sign(det) * (dHdxy.x * R1 + dHdxy.y * R2);
+	return normalize(abs(det) * N - grad);
+}
+
+#endif // GLSL_PERTURBNORMAL
