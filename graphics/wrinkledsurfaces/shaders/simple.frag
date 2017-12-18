@@ -39,6 +39,9 @@ layout(location = 0) in VertexData
 	// View space surface normal
 	vec3 Normal;
 
+	// View space surface tangent
+	vec3 Tangent;
+
 	// 2D surface parameterization
 	vec2 TexCoords;
 } In;
@@ -80,9 +83,31 @@ void main(void)
 
 	// Different ways to determine the surface normal
 	vec3 N = In.Normal;
-	if (DetailMode == 1)
+	const int idx = 3;
+	switch (idx)
 	{
-		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 1));
+	case 1: // Object space normal mapping
+	{
+		break;
+	}	
+	case 2: // Tangents space normal mapping
+	{
+		vec3 N_ts = 2 * texture(NormalMap, In.TexCoords).xyz - 1;
+
+		vec3 T_vs, B_vs, N_ws;
+		T_vs = In.Tangent;
+		B_vs = cross(N, T_vs);
+		N_ws = mat3(T_vs, B_vs, N) * N_ts;
+
+		N = (ViewMatrix * vec4(N_ws, 0)).xyz;
+
+		break;
+	}
+	case 3: // Pertubated normals
+	{
+		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 0.1));
+		break;
+	}
 	}
 
 	const vec3 view_dir = -normalize(In.Position);

@@ -38,6 +38,9 @@ layout(location = 0) out VertexData
 	// View space surface normal
 	vec3 Normal;
 
+	// View space surface tangent
+	vec3 Tangent;
+
 	// 2D surface parameterization
 	vec2 TexCoords;
 } Out;
@@ -52,10 +55,10 @@ const vec3 vertices[] = {
 	vec3( 1,  1, 0)
 };
 const vec2 tex_coords[] = {
-	vec2(0, 0),
-	vec2(1, 0),
 	vec2(0, 1),
-	vec2(1, 1)
+	vec2(1, 1),
+	vec2(0, 0),
+	vec2(1, 0)
 };
 
 void main()
@@ -66,8 +69,9 @@ void main()
 	vec4 pos_vs = ViewMatrix * ModelMatrix * vec4(vertices[node_id], 1);
 
 	// Pass data
-	Out.Position = pos_vs.xyz;
-	Out.Normal = (NormalMatrix * vec4(0, 0, 1, 0)).xyz;
+	Out.Position  = pos_vs.xyz;
+	Out.Normal    = (NormalMatrix * vec4(0, 0, 1, 0)).xyz;
+	Out.Tangent   = (NormalMatrix * vec4(1, 0, 0, 0)).xyz;
 	Out.TexCoords = tex_coords[node_id];
 
 	// Transform the point to view space

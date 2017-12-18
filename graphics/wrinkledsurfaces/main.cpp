@@ -127,7 +127,9 @@ public:
 		// Shader specializations
 		std::array<unsigned int, 1> indices = { 0 };
 		std::array<unsigned int, 1> simple_shader = { 0 };
-		std::array<unsigned int, 1> perturbnormal_shader = { 1 };
+		std::array<unsigned int, 1> objectspace_shader = { 1 };
+		std::array<unsigned int, 1> tangentspace_shader = { 2 };
+		std::array<unsigned int, 1> perturbnormal_shader = { 3 };
 
 		// Initialize simple shader
 		Shader simple_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
@@ -137,6 +139,14 @@ public:
 		simple_ps_desc.FragmentShader = &simple_frag;
 		_simplePS = std::make_unique<PipelineState>(simple_ps_desc);
 		
+		// Initialize tangent-space normal mapping shader
+		Shader tangentspace_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
+		Shader tangentspace_frag{ ShaderType::FragmentShader, 0, SimpleFrag, indices, tangentspace_shader };
+		PipelineStateDescription tangentspace_ps_desc;
+		tangentspace_ps_desc.VertexShader = &tangentspace_vert;
+		tangentspace_ps_desc.FragmentShader = &tangentspace_frag;
+		_tangentNormalmapPS = std::make_unique<PipelineState>(tangentspace_ps_desc);
+
 		// Initialize simple shader
 		Shader perturb_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
 		Shader perturb_frag{ ShaderType::FragmentShader, 0, SimpleFrag, indices, perturbnormal_shader };
@@ -196,7 +206,8 @@ public:
 		_engine->setConstantBuffer(0, cbuf_camera);
 
 		Eigen::Matrix4f M = _cameraController->currObjectTransformation();
-		renderScene(_engine.get(), _simplePS, M);
+		//renderScene(_engine.get(), _simplePS, M);
+		renderScene(_engine.get(), _tangentNormalmapPS, M);
 		//renderScene(_engine.get(), _perturbNormalPS, M);
 		
 		_engine->endFrame();
