@@ -25,7 +25,7 @@ set(SRC
 set(SHADERS
 	shaders/wrinkledsurfaces.h
 	shaders/wrinkledsurfaces.vert
-	shaders/simple.frag
+	shaders/wrinkledsurfaces.frag
 
 	shaders/perturbnormal.glsl
 )
@@ -44,18 +44,12 @@ vclcompileglsl(
 	COMPILEDSHADERS_0
 )
 vclcompileglsl(
-	${PROJECT_SOURCE_DIR}/shaders/simple.frag
-	"SimpleFrag"
+	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.frag
+	"WrinkledSurfacesFrag"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_1
 )
-#vclcompileglsl(
-#	${PROJECT_SOURCE_DIR}/shaders/boundinggrid.frag
-#	"BoundingGridFrag"
-#	"${CURR_INC_DIRS}"
-#	COMPILEDSHADERS_2
-#)
-set(COMPILEDSHADERS ${COMPILEDSHADERS_0} ${COMPILEDSHADERS_1} ${COMPILEDSHADERS_2})
+set(COMPILEDSHADERS ${COMPILEDSHADERS_0} ${COMPILEDSHADERS_1})
 
 # Include dependencies
 include_directories(${VCL_NANOGUI_INCLUDE})

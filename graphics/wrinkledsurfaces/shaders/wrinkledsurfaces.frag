@@ -64,6 +64,7 @@ layout(location = 3) uniform sampler2D NormalMap;
 ////////////////////////////////////////////////////////////////////////////////
 #ifdef GL_SPIRV
 layout(constant_id = 0) const uint DetailMode = 0;
+layout(location = 4) uniform uint DetailModeUniform = 0;
 #else
 #	error "Require SPIR-V support"
 #endif
@@ -83,8 +84,7 @@ void main(void)
 
 	// Different ways to determine the surface normal
 	vec3 N = In.Normal;
-	const int idx = 3;
-	switch (idx)
+	switch (DetailModeUniform)
 	{
 	case 1: // Object space normal mapping
 	{
@@ -99,22 +99,22 @@ void main(void)
 		B_vs = cross(N, T_vs);
 		N_ws = mat3(T_vs, B_vs, N) * N_ts;
 
-		N = (ViewMatrix * vec4(N_ws, 0)).xyz;
+		N = N_ws;
 
 		break;
 	}
 	case 3: // Pertubated normals
 	{
-		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 0.1));
+		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 0.01));
 		break;
 	}
 	}
 
 	const vec3 view_dir = -normalize(In.Position);
-	const vec3 light_dir = normalize(In.Position - (ViewMatrix * point_light).xyz);
+	const vec3 light_dir = normalize(In.Position - (ViewMatrix * ModelMatrix * point_light).xyz);
 
 	float diff_refl = max(0, dot(N, -light_dir));
-	float spec_refl = pow(max(0, dot(reflect(-light_dir, N), view_dir)), shininess);
+	float spec_refl = pow(max(0, dot(reflect(-light_dir, N), -view_dir)), shininess);
 
-	FragColour = vec4(albedo*diff_refl + specular*spec_refl, 1);
+	FragColour = vec4(specular*spec_refl, 1);
 }

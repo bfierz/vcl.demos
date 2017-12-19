@@ -57,7 +57,7 @@
 
 #include "shaders/wrinkledsurfaces.h"
 #include "wrinkledsurfaces.vert.spv.h"
-#include "simple.frag.spv.h"
+#include "wrinkledsurfaces.frag.spv.h"
 
 // Force the use of the NVIDIA GPU in an Optimus system
 extern "C"
@@ -101,19 +101,12 @@ public:
 		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
 
 		new Label(panel, "Method", "sans-bold");
-
-		//TextBox *textBox = new TextBox(panel);
-		//textBox->setEditable(true);
-		//textBox->setValue(std::to_string(_gridResolution));
-		//textBox->setFormat("[1-9][0-9]*");
-		//textBox->setFontSize(20);
-		//textBox->setFixedSize(Vector2i(60, 25));
-		//textBox->setAlignment(TextBox::Alignment::Right);
-		//textBox->setCallback([this](const std::string& txt) -> bool
-		//{
-		//	_gridResolution = std::atoi(txt.c_str());
-		//	return true;
-		//});
+		
+		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen"});
+		method_selection->setCallback([this](int idx)
+		{
+			_bumpMethod = idx;
+		});
 		
 		performLayout();
 
@@ -133,27 +126,30 @@ public:
 
 		// Initialize simple shader
 		Shader simple_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
-		Shader simple_frag{ ShaderType::FragmentShader, 0, SimpleFrag, indices, simple_shader };
+		Shader simple_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, simple_shader };
 		PipelineStateDescription simple_ps_desc;
 		simple_ps_desc.VertexShader = &simple_vert;
 		simple_ps_desc.FragmentShader = &simple_frag;
 		_simplePS = std::make_unique<PipelineState>(simple_ps_desc);
+		_simplePS->program().setUniform("DetailModeUniform", 0u);
 		
 		// Initialize tangent-space normal mapping shader
 		Shader tangentspace_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
-		Shader tangentspace_frag{ ShaderType::FragmentShader, 0, SimpleFrag, indices, tangentspace_shader };
+		Shader tangentspace_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, tangentspace_shader };
 		PipelineStateDescription tangentspace_ps_desc;
 		tangentspace_ps_desc.VertexShader = &tangentspace_vert;
 		tangentspace_ps_desc.FragmentShader = &tangentspace_frag;
 		_tangentNormalmapPS = std::make_unique<PipelineState>(tangentspace_ps_desc);
+		_tangentNormalmapPS->program().setUniform("DetailModeUniform", 2u);
 
 		// Initialize simple shader
 		Shader perturb_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
-		Shader perturb_frag{ ShaderType::FragmentShader, 0, SimpleFrag, indices, perturbnormal_shader };
+		Shader perturb_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, perturbnormal_shader };
 		PipelineStateDescription perturb_ps_desc;
 		perturb_ps_desc.VertexShader = &perturb_vert;
 		perturb_ps_desc.FragmentShader = &perturb_frag;
 		_perturbNormalPS = std::make_unique<PipelineState>(perturb_ps_desc);
+		_perturbNormalPS->program().setUniform("DetailModeUniform", 3u);
 
 		// Load texture resources
 		_diffuseMap = loadTexture("textures/diffuse.png");
@@ -206,9 +202,20 @@ public:
 		_engine->setConstantBuffer(0, cbuf_camera);
 
 		Eigen::Matrix4f M = _cameraController->currObjectTransformation();
-		//renderScene(_engine.get(), _simplePS, M);
-		renderScene(_engine.get(), _tangentNormalmapPS, M);
-		//renderScene(_engine.get(), _perturbNormalPS, M);
+		switch (_bumpMethod)
+		{
+		case 0:
+			renderScene(_engine.get(), _simplePS, M);
+			break;
+		case 1:
+			break;
+		case 2:
+			renderScene(_engine.get(), _tangentNormalmapPS, M);
+			break;
+		case 3:
+			renderScene(_engine.get(), _perturbNormalPS, M);
+			break;
+		}
 		
 		_engine->endFrame();
 	}
@@ -276,6 +283,9 @@ private:
 
 private:
 	std::unique_ptr<Vcl::Graphics::Camera> _camera;
+
+	//! Selected bump-mapping technique
+	int _bumpMethod{ 0 };
 	
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _diffuseMap;
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _specularMap;
