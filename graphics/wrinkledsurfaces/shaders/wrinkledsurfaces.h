@@ -55,4 +55,16 @@ UNIFORM_BUFFER(1) ObjectTransformData
 	mat4 NormalMatrix;
 };
 
+UNIFORM_BUFFER(2) TessellationData
+{
+	// Tessellation level
+	float Level;
+
+	// Mid-level
+	float Midlevel;
+
+	// Height scale parameter
+	float HeightScale;
+};
+
 #endif // GLSL_WRINKLEDSURFACES_H

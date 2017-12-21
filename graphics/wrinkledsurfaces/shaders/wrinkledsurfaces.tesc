@@ -28,6 +28,29 @@
 #include "wrinkledsurfaces.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+// Shader Configuration
+////////////////////////////////////////////////////////////////////////////////
+layout(vertices = 3) out;
+
+////////////////////////////////////////////////////////////////////////////////
+// Shader Input
+////////////////////////////////////////////////////////////////////////////////
+layout(location = 0) in VertexData
+{
+	// View space position
+	vec3 Position;
+
+	// View space surface normal
+	vec3 Normal;
+
+	// View space surface tangent
+	vec3 Tangent;
+
+	// 2D surface parameterization
+	vec2 TexCoords;
+} In[];
+
+////////////////////////////////////////////////////////////////////////////////
 // Shader Output
 ////////////////////////////////////////////////////////////////////////////////
 layout(location = 0) out VertexData
@@ -43,41 +66,24 @@ layout(location = 0) out VertexData
 
 	// 2D surface parameterization
 	vec2 TexCoords;
-} Out;
+} Out[];
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
-////////////////////////////////////////////////////////////////////////////////
-const vec3 vertices[] = {
-	vec3(-1, -1, 0),
-	vec3( 1, -1, 0),
-	vec3(-1,  1, 0),
-	vec3(-1,  1, 0),
-	vec3( 1, -1, 0),
-	vec3( 1,  1, 0)
-};
-const vec2 tex_coords[] = {
-	vec2(0, 0),
-	vec2(1, 0),
-	vec2(0, 1),
-	vec2(0, 1),
-	vec2(1, 0),
-	vec2(1, 1)
-};
-
+//////////////////////////////////////////////////////////////////////////////// 
 void main()
 {
-	// Vertex index in the loop
-	int node_id = gl_VertexID % 6;
+	gl_out[gl_InvocationID].gl_Position = gl_in[gl_InvocationID].gl_Position;
+	Out[gl_InvocationID].Position  = In[gl_InvocationID].Position;
+	Out[gl_InvocationID].Normal    = In[gl_InvocationID].Normal;
+	Out[gl_InvocationID].Tangent   = In[gl_InvocationID].Tangent;
+	Out[gl_InvocationID].TexCoords = In[gl_InvocationID].TexCoords;
 
-	vec4 pos_vs = ViewMatrix * ModelMatrix * vec4(vertices[node_id], 1);
-
-	// Pass data
-	Out.Position  = pos_vs.xyz;
-	Out.Normal    = (NormalMatrix * vec4(0, 0, 1, 0)).xyz;
-	Out.Tangent   = (NormalMatrix * vec4(1, 0, 0, 0)).xyz;
-	Out.TexCoords = tex_coords[node_id];
-
-	// Transform the point to view space
-	gl_Position = ProjectionMatrix * pos_vs;
+	if (gl_InvocationID == 0)
+	{
+		gl_TessLevelInner[0] = Level;
+		gl_TessLevelOuter[0] = Level;
+		gl_TessLevelOuter[1] = Level;
+		gl_TessLevelOuter[2] = Level;
+	}
 }

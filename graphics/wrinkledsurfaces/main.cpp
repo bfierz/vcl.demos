@@ -57,6 +57,8 @@
 
 #include "shaders/wrinkledsurfaces.h"
 #include "wrinkledsurfaces.vert.spv.h"
+#include "wrinkledsurfaces.cont.spv.h"
+#include "wrinkledsurfaces.eval.spv.h"
 #include "wrinkledsurfaces.frag.spv.h"
 
 // Force the use of the NVIDIA GPU in an Optimus system
@@ -76,10 +78,13 @@ public:
 		using namespace nanogui;
 
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
+		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
 		using Vcl::Graphics::Runtime::OpenGL::Shader;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgramDescription;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgram;
+		using Vcl::Graphics::Runtime::FillMode;
 		using Vcl::Graphics::Runtime::PipelineStateDescription;
+		using Vcl::Graphics::Runtime::RasterizerDescription;
 		using Vcl::Graphics::Runtime::ShaderType;
 		using Vcl::Graphics::Camera;
 		using Vcl::Graphics::SurfaceFormat;
@@ -102,7 +107,7 @@ public:
 
 		new Label(panel, "Method", "sans-bold");
 		
-		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen"});
+		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
 		method_selection->setCallback([this](int idx)
 		{
 			_bumpMethod = idx;
@@ -117,12 +122,17 @@ public:
 		_cameraController = std::make_unique<Vcl::Graphics::TrackballCameraController>();
 		_cameraController->setCamera(_camera.get());
 
+		// Rasterization configuration
+		RasterizerDescription raster_desc;
+		//raster_desc.FillMode = FillMode::Wireframe;
+
 		// Shader specializations
 		std::array<unsigned int, 1> indices = { 0 };
 		std::array<unsigned int, 1> simple_shader = { 0 };
 		std::array<unsigned int, 1> objectspace_shader = { 1 };
 		std::array<unsigned int, 1> tangentspace_shader = { 2 };
 		std::array<unsigned int, 1> perturbnormal_shader = { 3 };
+		std::array<unsigned int, 1> displacement_shader = { 0 };
 
 		// Initialize simple shader
 		Shader simple_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
@@ -142,7 +152,7 @@ public:
 		_tangentNormalmapPS = std::make_unique<PipelineState>(tangentspace_ps_desc);
 		_tangentNormalmapPS->program().setUniform("DetailModeUniform", 2u);
 
-		// Initialize simple shader
+		// Initialize Mikkelsen bump mapping shader
 		Shader perturb_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
 		Shader perturb_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, perturbnormal_shader };
 		PipelineStateDescription perturb_ps_desc;
@@ -150,6 +160,20 @@ public:
 		perturb_ps_desc.FragmentShader = &perturb_frag;
 		_perturbNormalPS = std::make_unique<PipelineState>(perturb_ps_desc);
 		_perturbNormalPS->program().setUniform("DetailModeUniform", 3u);
+		
+		// Initialize displacement mapping shader
+		Shader disp_vert{ ShaderType::VertexShader,     0, WrinkledSurfacesVert };
+		Shader disp_cont{ ShaderType::ControlShader,    0, WrinkledSurfacesCont };
+		Shader disp_eval{ ShaderType::EvaluationShader, 0, WrinkledSurfacesEval };
+		Shader disp_frag{ ShaderType::FragmentShader,   0, WrinkledSurfacesFrag, indices, displacement_shader };
+		PipelineStateDescription disp_ps_desc;
+		disp_ps_desc.Rasterizer = raster_desc;
+		disp_ps_desc.VertexShader = &disp_vert;
+		disp_ps_desc.TessControlShader = &disp_cont;
+		disp_ps_desc.TessEvalShader = &disp_eval;
+		disp_ps_desc.FragmentShader = &disp_frag;
+		_displacementPS = std::make_unique<PipelineState>(disp_ps_desc);
+		_displacementPS->program().setUniform("DetailModeUniform", 0u);
 
 		// Load texture resources
 		_diffuseMap = loadTexture("textures/diffuse.png");
@@ -205,16 +229,27 @@ public:
 		switch (_bumpMethod)
 		{
 		case 0:
-			renderScene(_engine.get(), _simplePS, M);
+			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _simplePS, M);
 			break;
 		case 1:
 			break;
 		case 2:
-			renderScene(_engine.get(), _tangentNormalmapPS, M);
+			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _tangentNormalmapPS, M);
 			break;
 		case 3:
-			renderScene(_engine.get(), _perturbNormalPS, M);
+			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _perturbNormalPS, M);
 			break;
+		case 4:
+		{
+			auto cbuf_tess = _engine->requestPerFrameConstantBuffer<TessellationData>();
+			cbuf_tess->Level = 32;
+			cbuf_tess->Midlevel = 0;
+			cbuf_tess->HeightScale = 0.05f;
+			_engine->setConstantBuffer(2, cbuf_tess);
+
+			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Patch, _engine.get(), _displacementPS, M);
+			break;
+		}
 		}
 		
 		_engine->endFrame();
@@ -223,6 +258,7 @@ public:
 private:
 	void renderScene
 	(
+		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
 		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps,
 		const Eigen::Matrix4f& M
@@ -244,8 +280,8 @@ private:
 		cmd_queue->setTexture(3, *_normalMap);
 
 		// Render the quad
-		cmd_queue->setPrimitiveType(Vcl::Graphics::Runtime::PrimitiveType::Trianglestrip);
-		cmd_queue->draw(4);
+		cmd_queue->setPrimitiveType(primitive_type, 3);
+		cmd_queue->draw(6);
 	}
 
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> loadTexture(const char* filename)
@@ -296,6 +332,7 @@ private:
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _objectNormalmapPS;
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _tangentNormalmapPS;
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _perturbNormalPS;
+	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _displacementPS;
 };
 
 int main(int /* argc */, char ** /* argv */)

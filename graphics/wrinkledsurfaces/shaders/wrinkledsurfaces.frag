@@ -116,5 +116,5 @@ void main(void)
 	float diff_refl = max(0, dot(N, -light_dir));
 	float spec_refl = pow(max(0, dot(reflect(-light_dir, N), -view_dir)), shininess);
 
-	FragColour = vec4(specular*spec_refl, 1);
+	FragColour = vec4(albedo*diff_refl + specular*spec_refl, 1);
 }

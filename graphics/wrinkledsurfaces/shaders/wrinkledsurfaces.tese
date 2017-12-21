@@ -28,6 +28,29 @@
 #include "wrinkledsurfaces.h"
 
 ////////////////////////////////////////////////////////////////////////////////
+// Shader Configuration
+////////////////////////////////////////////////////////////////////////////////
+layout(triangles) in;
+
+////////////////////////////////////////////////////////////////////////////////
+// Shader Input
+////////////////////////////////////////////////////////////////////////////////
+layout(location = 0) in VertexData
+{
+	// View space position
+	vec3 Position;
+
+	// View space surface normal
+	vec3 Normal;
+
+	// View space surface tangent
+	vec3 Tangent;
+
+	// 2D surface parameterization
+	vec2 TexCoords;
+} In[];
+
+////////////////////////////////////////////////////////////////////////////////
 // Shader Output
 ////////////////////////////////////////////////////////////////////////////////
 layout(location = 0) out VertexData
@@ -46,38 +69,40 @@ layout(location = 0) out VertexData
 } Out;
 
 ////////////////////////////////////////////////////////////////////////////////
+// Shader Constants
+////////////////////////////////////////////////////////////////////////////////
+layout(location = 2) uniform sampler2D HeightMap;
+
+////////////////////////////////////////////////////////////////////////////////
 // Implementation
 ////////////////////////////////////////////////////////////////////////////////
-const vec3 vertices[] = {
-	vec3(-1, -1, 0),
-	vec3( 1, -1, 0),
-	vec3(-1,  1, 0),
-	vec3(-1,  1, 0),
-	vec3( 1, -1, 0),
-	vec3( 1,  1, 0)
-};
-const vec2 tex_coords[] = {
-	vec2(0, 0),
-	vec2(1, 0),
-	vec2(0, 1),
-	vec2(0, 1),
-	vec2(1, 0),
-	vec2(1, 1)
-};
-
 void main()
 {
-	// Vertex index in the loop
-	int node_id = gl_VertexID % 6;
+	vec3 p0 = gl_TessCoord.x * In[0].Position.xyz;
+	vec3 p1 = gl_TessCoord.y * In[1].Position.xyz;
+	vec3 p2 = gl_TessCoord.z * In[2].Position.xyz;
+	vec3 pos = p0 + p1 + p2;
+	Out.Position = pos;
 
-	vec4 pos_vs = ViewMatrix * ModelMatrix * vec4(vertices[node_id], 1);
+	vec3 n0 = gl_TessCoord.x * In[0].Normal;
+	vec3 n1 = gl_TessCoord.y * In[1].Normal;
+	vec3 n2 = gl_TessCoord.z * In[2].Normal;
+	vec3 normal = normalize(n0 + n1 + n2);
+	Out.Normal = normal;
+	
+	vec3 t0 = gl_TessCoord.x * In[0].Tangent;
+	vec3 t1 = gl_TessCoord.y * In[1].Tangent;
+	vec3 t2 = gl_TessCoord.z * In[2].Tangent;
+	vec3 tangent = normalize(t0 + t1 + t2);
+	Out.Tangent = tangent;
 
-	// Pass data
-	Out.Position  = pos_vs.xyz;
-	Out.Normal    = (NormalMatrix * vec4(0, 0, 1, 0)).xyz;
-	Out.Tangent   = (NormalMatrix * vec4(1, 0, 0, 0)).xyz;
-	Out.TexCoords = tex_coords[node_id];
-
-	// Transform the point to view space
-	gl_Position = ProjectionMatrix * pos_vs;
+	vec2 tc0 = gl_TessCoord.x * In[0].TexCoords;
+	vec2 tc1 = gl_TessCoord.y * In[1].TexCoords;
+	vec2 tc2 = gl_TessCoord.z * In[2].TexCoords;  
+	vec2 tc = tc0 + tc1 + tc2;
+	Out.TexCoords = tc;
+		
+	float height = 2 * (texture(HeightMap, tc).x - Midlevel);
+	pos += normal * HeightScale * height;
+	gl_Position = ProjectionMatrix * vec4(pos, 1);
 }
