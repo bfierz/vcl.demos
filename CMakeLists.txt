@@ -39,4 +39,5 @@ set(BuildTests OFF CACHE BOOL "" FORCE)
 subdirs(${VCL_SOURCE_DIR}/src/libs/vcl.core)
 subdirs(${VCL_SOURCE_DIR}/src/libs/vcl.graphics)
 
+subdirs(graphics/colourtemperature)
 subdirs(graphics/wrinkledsurfaces)
