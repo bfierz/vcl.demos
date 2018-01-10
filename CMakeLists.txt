@@ -1,7 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(vcl.demos)
-
 # Load the VCL libraries from externally
 set(VCL_SOURCE_DIR "${CMAKE_BINARY_DIR}/externals/vcl-src")
 set(VCL_BINARY_DIR "${CMAKE_BINARY_DIR}/externals/vcl-build")
@@ -29,12 +27,31 @@ include(${VCL_SOURCE_DIR}/src/cmake/VCLConfig.cmake)
 
 # External libraries
 set(EIGEN3_INCLUDE_DIR "${VCL_SOURCE_DIR}/src/externals/eigen")
+find_package(Eigen3 3.3 QUIET)
 
-subdirs(${VCL_SOURCE_DIR}/src/externals/EGL/EGL)
+option(BUILD_TESTING OFF)
+option(BUILD_EXAMPLES OFF)
+subdirs(${VCL_SOURCE_DIR}/src/externals/cctz)
+subdirs(${VCL_SOURCE_DIR}/src/externals/abseil)
+
+option(FMT_TEST OFF)
+option(FMT_USE_CPP11 ON)
 subdirs(${VCL_SOURCE_DIR}/src/externals/fmtlib)
 subdirs(${VCL_SOURCE_DIR}/src/externals/gsl)
+
+option(BuildTests OFF)
 subdirs(${VCL_SOURCE_DIR}/src/externals/json)
-set(BuildTests OFF CACHE BOOL "" FORCE)
+
+find_package(EGL QUIET)
+if(EGL_FOUND)
+	add_library(egl UNKNOWN IMPORTED)
+	set_property(TARGET egl PROPERTY TARGET_INCLUDE_DIRECTORIES "${EGL_INCLUDE_DIR}")
+	set_property(TARGET egl PROPERTY IMPORTED_LOCATION "${EGL_LIBRARY}")
+else()
+	subdirs(${VCL_SOURCE_DIR}/src/externals/EGL/EGL)
+endif()
+
+project(vcl.demos)
 
 subdirs(${VCL_SOURCE_DIR}/src/libs/vcl.core)
 subdirs(${VCL_SOURCE_DIR}/src/libs/vcl.graphics)
