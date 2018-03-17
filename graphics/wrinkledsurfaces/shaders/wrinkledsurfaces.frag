@@ -99,11 +99,12 @@ void main(void)
 		B_vs = cross(N, T_vs);
 		N_ws = mat3(T_vs, B_vs, N) * N_ts;
 
-		N = N_ws;
+		N = normalize(N_ws);
 
 		break;
 	}
 	case 3: // Pertubated normals
+	case 4: // Screen space normals for displacement mapping
 	{
 		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 0.01));
 		break;
@@ -111,7 +112,7 @@ void main(void)
 	}
 
 	const vec3 view_dir = -normalize(In.Position);
-	const vec3 light_dir = normalize(In.Position - (ViewMatrix * ModelMatrix * point_light).xyz);
+	const vec3 light_dir = normalize(In.Position - (ViewMatrix * point_light).xyz);
 
 	float diff_refl = max(0, dot(N, -light_dir));
 	float spec_refl = pow(max(0, dot(reflect(-light_dir, N), -view_dir)), shininess);

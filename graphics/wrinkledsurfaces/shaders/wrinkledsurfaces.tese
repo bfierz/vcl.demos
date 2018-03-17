@@ -82,7 +82,6 @@ void main()
 	vec3 p1 = gl_TessCoord.y * In[1].Position.xyz;
 	vec3 p2 = gl_TessCoord.z * In[2].Position.xyz;
 	vec3 pos = p0 + p1 + p2;
-	Out.Position = pos;
 
 	vec3 n0 = gl_TessCoord.x * In[0].Normal;
 	vec3 n1 = gl_TessCoord.y * In[1].Normal;
@@ -104,5 +103,7 @@ void main()
 		
 	float height = 2 * (texture(HeightMap, tc).x - Midlevel);
 	pos += normal * HeightScale * height;
+	
+	Out.Position = pos;
 	gl_Position = ProjectionMatrix * vec4(pos, 1);
 }

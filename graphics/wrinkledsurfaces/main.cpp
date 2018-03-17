@@ -132,7 +132,7 @@ public:
 		std::array<unsigned int, 1> objectspace_shader = { 1 };
 		std::array<unsigned int, 1> tangentspace_shader = { 2 };
 		std::array<unsigned int, 1> perturbnormal_shader = { 3 };
-		std::array<unsigned int, 1> displacement_shader = { 0 };
+		std::array<unsigned int, 1> displacement_shader = { 4 };
 
 		// Initialize simple shader
 		Shader simple_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
@@ -173,7 +173,7 @@ public:
 		disp_ps_desc.TessEvalShader = &disp_eval;
 		disp_ps_desc.FragmentShader = &disp_frag;
 		_displacementPS = std::make_unique<PipelineState>(disp_ps_desc);
-		_displacementPS->program().setUniform("DetailModeUniform", 0u);
+		_displacementPS->program().setUniform("DetailModeUniform", 4u);
 
 		// Load texture resources
 		_diffuseMap = loadTexture("textures/diffuse.png");
@@ -242,7 +242,7 @@ public:
 		case 4:
 		{
 			auto cbuf_tess = _engine->requestPerFrameConstantBuffer<TessellationData>();
-			cbuf_tess->Level = 32;
+			cbuf_tess->Level = 64;
 			cbuf_tess->Midlevel = 0;
 			cbuf_tess->HeightScale = 0.05f;
 			_engine->setConstantBuffer(2, cbuf_tess);
