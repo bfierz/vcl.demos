@@ -79,7 +79,7 @@ public:
 		using Vcl::Graphics::Runtime::OpenGL::Shader;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgramDescription;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgram;
-		using Vcl::Graphics::Runtime::FillMode;
+		using Vcl::Graphics::Runtime::FillModeMethod;
 		using Vcl::Graphics::Runtime::PipelineStateDescription;
 		using Vcl::Graphics::Runtime::RasterizerDescription;
 		using Vcl::Graphics::Runtime::ShaderType;

@@ -57,8 +57,8 @@
 
 #include "shaders/wrinkledsurfaces.h"
 #include "wrinkledsurfaces.vert.spv.h"
-#include "wrinkledsurfaces.cont.spv.h"
-#include "wrinkledsurfaces.eval.spv.h"
+#include "wrinkledsurfaces.tesc.spv.h"
+#include "wrinkledsurfaces.tese.spv.h"
 #include "wrinkledsurfaces.frag.spv.h"
 
 // Force the use of the NVIDIA GPU in an Optimus system
@@ -82,7 +82,7 @@ public:
 		using Vcl::Graphics::Runtime::OpenGL::Shader;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgramDescription;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgram;
-		using Vcl::Graphics::Runtime::FillMode;
+		using Vcl::Graphics::Runtime::FillModeMethod;
 		using Vcl::Graphics::Runtime::PipelineStateDescription;
 		using Vcl::Graphics::Runtime::RasterizerDescription;
 		using Vcl::Graphics::Runtime::ShaderType;
