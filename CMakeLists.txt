@@ -51,3 +51,4 @@ endif()
 # Actual demos
 add_subdirectory(graphics/colourtemperature)
 add_subdirectory(graphics/wrinkledsurfaces)
+add_subdirectory(graphics/solidwireframe)
