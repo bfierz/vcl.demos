@@ -72,6 +72,15 @@ void main(void)
 	vec3 specular = vec3(0.2f, 0.2f, 0.2f);
 	float shininess = 32;
 
+	vec3 baryc;
+	baryc.xy = In.BarycentricCoords;
+	baryc.z = 1 - In.BarycentricCoords.x - In.BarycentricCoords.y;
+	vec3 deltas = fwidth(baryc);
+	baryc = smoothstep(deltas, 2 * deltas, baryc);
+
+	float min_baryc = min(baryc.x, min(baryc.y, baryc.z));
+	albedo *= min_baryc;
+
 	vec3 N = In.Normal;
 
 	const vec3 view_dir = -normalize(In.Position);

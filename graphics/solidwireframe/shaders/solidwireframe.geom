@@ -72,7 +72,10 @@ void main()
 	vec3 n1 = In[1].Normal;
 	vec3 n2 = In[2].Normal;
 
-	vec3 face_normal = cross(p1 - p0, p2 - p0);
+	vec3 face_normal = normalize(cross(p1 - p0, p2 - p0));
+	n0 = face_normal;
+	n1 = face_normal;
+	n2 = face_normal;
 
 	Out.Position = p0; Out.Normal = n0; Out.BarycentricCoords = vec2(1, 0); gl_Position = ProjectionMatrix * vec4(p0, 1); EmitVertex();
 	Out.Position = p1; Out.Normal = n1; Out.BarycentricCoords = vec2(0, 1); gl_Position = ProjectionMatrix * vec4(p1, 1); EmitVertex();
