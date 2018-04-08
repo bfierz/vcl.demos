@@ -74,8 +74,8 @@ void main()
 
 	// Pass data
 	Out.Position  = pos_vs.xyz;
-	Out.Normal    = (NormalMatrix * vec4(0, 0, 1, 0)).xyz;
-	Out.Tangent   = (NormalMatrix * vec4(-1, 0, 0, 0)).xyz;
+	Out.Normal    = (NormalMatrix * vec4( 0, 0, 1, 0)).xyz;
+	Out.Tangent   = (NormalMatrix * vec4( 1, 0, 0, 0)).xyz;
 	Out.TexCoords = tex_coords[node_id];
 
 	// Transform the point to view space

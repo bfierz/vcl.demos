@@ -28,12 +28,20 @@
 // Derivative maps - bump mapping unparametrized surfaces by Morten Mikkelsen
 // http://mmikkelsen3d.blogspot.sk/2011/07/derivative-maps.html
 
+// Some additional resources
+// http://trevorius.com/scrapbook/uncategorized/derivative-normal-maps/
+// http://www.rorydriscoll.com/2012/01/11/derivative-maps/
+// http://www.rorydriscoll.com/2012/01/15/derivative-maps-vs-normal-maps/
+// http://therobotseven.com/devlog/triplanar-texturing-derivative-maps/
+// http://polycount.com/discussion/91605/derivative-normal-maps-what-are-they
+// https://docs.knaldtech.com/doku.php?id=derivative_maps_knald
+
 // Evaluate the derivative of the height w.r.t. screen-space using forward differencing (listing 2)
 
 vec2 dHdxy_fwd(sampler2D bump_map, vec2 uv, float scale)
 {
-	vec2 dSTdx = dFdx(uv);
-	vec2 dSTdy = dFdy(uv);
+	vec2 dSTdx = dFdxFine(uv);
+	vec2 dSTdy = dFdyFine(uv);
 
 	float h   = scale * texture(bump_map, uv).x;
 	float dBx = scale * texture(bump_map, uv + dSTdx).x - h;
@@ -42,11 +50,20 @@ vec2 dHdxy_fwd(sampler2D bump_map, vec2 uv, float scale)
 	return vec2(dBx, dBy);
 }
 
+vec2 dHdxy(sampler2D bump_map, vec2 uv, float scale)
+{
+	float h = scale * texture(bump_map, uv).x;
+	float dBx = dFdxFine(h);
+	float dBy = dFdyFine(h);
+
+	return vec2(dBx, dBy);
+}
+
 // Surface normal is normalized
 vec3 perturbNormal(vec3 surf_pos, vec3 surf_norm, vec2 dHdxy)
 {
-	vec3 SigmaX = dFdx(surf_pos);
-	vec3 SigmaY = dFdy(surf_pos);
+	vec3 SigmaX = dFdxFine(surf_pos);
+	vec3 SigmaY = dFdyFine(surf_pos);
 	vec3 N = surf_norm;
 
 	vec3 R1 = cross(SigmaY, N);
