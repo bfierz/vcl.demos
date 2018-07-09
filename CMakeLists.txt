@@ -22,14 +22,14 @@ if (VCL_DEMOS_STANDALONE_PROJECT)
 		file(MAKE_DIRECTORY ${VCL_SOURCE_DIR})
 		execute_process(
 			COMMAND git clone https://github.com/bfierz/vcl.git .
-			COMMAND git checkout master
+			COMMAND git checkout "master"
 			COMMAND git submodule update --init --recursive
 			WORKING_DIRECTORY ${VCL_SOURCE_DIR}
 		)
 	else()
 		execute_process(
 			COMMAND git fetch --all --prune
-			COMMAND git checkout master
+			COMMAND git checkout "master"
 			COMMAND git merge		
 			COMMAND git submodule sync
 			COMMAND git submodule update --init --recursive

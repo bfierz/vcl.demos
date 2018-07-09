@@ -71,7 +71,7 @@ layout(location = 0) out VertexData
 ////////////////////////////////////////////////////////////////////////////////
 // Shader Constants
 ////////////////////////////////////////////////////////////////////////////////
-layout(location = 2) uniform sampler2D HeightMap;
+layout(location = 1) uniform sampler2D HeightMap;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Implementation
@@ -102,8 +102,8 @@ void main()
 	Out.TexCoords = tc;
 		
 	float height = 2 * (texture(HeightMap, tc).x - Midlevel);
-	pos += normal * HeightScale * height;
+	vec3 disp = normal * HeightScale * height;
 	
 	Out.Position = pos;
-	gl_Position = ProjectionMatrix * vec4(pos, 1);
+	gl_Position = ProjectionMatrix * vec4(pos + disp, 1);
 }

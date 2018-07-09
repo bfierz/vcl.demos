@@ -47,6 +47,7 @@
 #include <vcl/graphics/opengl/context.h>
 #include <vcl/graphics/runtime/opengl/resource/shader.h>
 #include <vcl/graphics/runtime/opengl/resource/texture2d.h>
+#include <vcl/graphics/runtime/opengl/state/sampler.h>
 #include <vcl/graphics/runtime/opengl/state/pipelinestate.h>
 #include <vcl/graphics/runtime/opengl/graphicsengine.h>
 #include <vcl/graphics/camera.h>
@@ -73,18 +74,23 @@ class WrinkledSurfacesExample : public nanogui::Screen
 {
 public:
 	WrinkledSurfacesExample()
-	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example")
+	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example", 
+		true, false, 8, 8, 24, 8, 0,
+		4, 6)
 	{
 		using namespace nanogui;
 
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
 		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
+		using Vcl::Graphics::Runtime::OpenGL::Sampler;
 		using Vcl::Graphics::Runtime::OpenGL::Shader;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgramDescription;
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgram;
 		using Vcl::Graphics::Runtime::FillModeMethod;
+		using Vcl::Graphics::Runtime::FilterType;
 		using Vcl::Graphics::Runtime::PipelineStateDescription;
 		using Vcl::Graphics::Runtime::RasterizerDescription;
+		using Vcl::Graphics::Runtime::SamplerDescription;
 		using Vcl::Graphics::Runtime::ShaderType;
 		using Vcl::Graphics::Camera;
 		using Vcl::Graphics::SurfaceFormat;
@@ -102,11 +108,21 @@ public:
 		window->setPosition(Vector2i(15, 15));
 		window->setLayout(new GroupLayout());
 
-		Widget *panel = new Widget(window);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
+		Widget* vertical = new Widget(window);
+		vertical->setLayout(new BoxLayout(Orientation::Vertical, Alignment::Middle, 0, 20));
 
+		Widget *panel = new Widget(vertical);
+		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
+		new Label(panel, "Scene", "sans-bold");
+		auto* scene_selection = new ComboBox(panel, { "Pyramid", "Wall", "Dome" });
+		scene_selection->setCallback([this](int idx)
+		{
+			_scene = idx;
+		});
+
+		panel = new Widget(vertical);
+		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
 		new Label(panel, "Method", "sans-bold");
-		
 		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
 		method_selection->setCallback([this](int idx)
 		{
@@ -142,7 +158,16 @@ public:
 		simple_ps_desc.FragmentShader = &simple_frag;
 		_simplePS = std::make_unique<PipelineState>(simple_ps_desc);
 		_simplePS->program().setUniform("DetailModeUniform", 0u);
-		
+
+		// Initialize tangent-space normal mapping shader
+		Shader objectspace_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
+		Shader objectspace_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, objectspace_shader };
+		PipelineStateDescription objectspace_ps_desc;
+		objectspace_ps_desc.VertexShader   = &objectspace_vert;
+		objectspace_ps_desc.FragmentShader = &objectspace_frag;
+		_objectNormalmapPS = std::make_unique<PipelineState>(objectspace_ps_desc);
+		_objectNormalmapPS->program().setUniform("DetailModeUniform", 1u);
+
 		// Initialize tangent-space normal mapping shader
 		Shader tangentspace_vert{ ShaderType::VertexShader,   0, WrinkledSurfacesVert };
 		Shader tangentspace_frag{ ShaderType::FragmentShader, 0, WrinkledSurfacesFrag, indices, tangentspace_shader };
@@ -175,11 +200,27 @@ public:
 		_displacementPS = std::make_unique<PipelineState>(disp_ps_desc);
 		_displacementPS->program().setUniform("DetailModeUniform", 4u);
 
+		// Create a linear sampler
+		SamplerDescription desc;
+		desc.Filter = FilterType::MinMagLinearMipPoint;
+		_linearSampler = std::make_unique<Sampler>(desc);
+
 		// Load texture resources
-		_diffuseMap = loadTexture("textures/diffuse.png");
-		_specularMap = loadTexture("textures/specular.png");
-		_normalMap = loadTexture("textures/normal.png");
-		_heightMap = loadTexture("textures/height.png");
+		auto textures = createPyramidTextures(2, 0.1f, 256, 16);
+		_diffuseMap  [0] = std::move(textures[0]);
+		_normalObjMap[0] = std::move(textures[1]);
+		_normalTanMap[0] = std::move(textures[2]);
+		_heightMap   [0] = std::move(textures[3]);
+
+		_diffuseMap  [1] = loadTexture("textures/wall/diffuse.png");
+		_normalObjMap[1] = loadTexture("textures/wall/normal_obj.png");
+		_normalTanMap[1] = loadTexture("textures/wall/normal_tan.png");
+		_heightMap   [1] = loadTexture("textures/wall/height.png");
+
+		_diffuseMap  [2] = loadTexture("textures/dome/diffuse.png");
+		_normalObjMap[2] = loadTexture("textures/dome/normal_obj.png");
+		_normalTanMap[2] = loadTexture("textures/dome/normal_tan.png");
+		_heightMap   [2] = loadTexture("textures/dome/height.png");
 	}
 
 public:
@@ -219,7 +260,7 @@ public:
 
 		// View on the scene
 		auto cbuf_camera = _engine->requestPerFrameConstantBuffer<PerFrameCameraData>();
-		cbuf_camera->Viewport = vec4(0, 0, width(), height());
+		cbuf_camera->Viewport = vec4(0, 0, (float)width(), (float)height());
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
@@ -232,6 +273,7 @@ public:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _simplePS, M);
 			break;
 		case 1:
+			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _objectNormalmapPS, M);
 			break;
 		case 2:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _tangentNormalmapPS, M);
@@ -243,8 +285,8 @@ public:
 		{
 			auto cbuf_tess = _engine->requestPerFrameConstantBuffer<TessellationData>();
 			cbuf_tess->Level = 64;
-			cbuf_tess->Midlevel = 0;
-			cbuf_tess->HeightScale = 0.05f;
+			cbuf_tess->Midlevel = 127.0f/255.0f;
+			cbuf_tess->HeightScale = 0.01f;
 			_engine->setConstantBuffer(2, cbuf_tess);
 
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Patch, _engine.get(), _displacementPS, M);
@@ -272,43 +314,194 @@ private:
 		cbuf_transform->ModelMatrix = M;
 		cbuf_transform->NormalMatrix = mat4((_camera->view() * M).inverse().transpose());
 		cmd_queue->setConstantBuffer(1, cbuf_transform);
-		
+
+		// Samplers
+		cmd_queue->setSampler(0, *_linearSampler);
+		cmd_queue->setSampler(1, *_linearSampler);
+		cmd_queue->setSampler(2, *_linearSampler);
+		cmd_queue->setSampler(3, *_linearSampler);
+
 		// Textures
-		cmd_queue->setTexture(0, *_diffuseMap);
-		cmd_queue->setTexture(1, *_specularMap);
-		cmd_queue->setTexture(2, *_heightMap);
-		cmd_queue->setTexture(3, *_normalMap);
+		cmd_queue->setTexture(0, *_diffuseMap[_scene]);
+		cmd_queue->setTexture(1, *_heightMap[_scene]);
+		cmd_queue->setTexture(2, *_normalObjMap[_scene]);
+		cmd_queue->setTexture(3, *_normalTanMap[_scene]);
 
 		// Render the quad
 		cmd_queue->setPrimitiveType(primitive_type, 3);
 		cmd_queue->draw(6);
 	}
 
-	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> loadTexture(const char* filename)
+	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> createTexture
+	(
+		uint32_t w, uint32_t h, Vcl::Graphics::SurfaceFormat tgt_fmt,
+		void* src, Vcl::Graphics::SurfaceFormat src_fmt
+	) const
 	{
 		using Vcl::Graphics::Runtime::OpenGL::Texture2D;
 		using Vcl::Graphics::Runtime::Texture2DDescription;
 		using Vcl::Graphics::Runtime::TextureResource;
-		using Vcl::Graphics::SurfaceFormat;
-
-		int force_channels = 0;
-		int w, h, n;
-		ImageType diffuse_data(stbi_load(filename, &w, &h, &n, force_channels), stbi_image_free);
 
 		Texture2DDescription diffuse_tex_desc;
 		diffuse_tex_desc.Width = w;
 		diffuse_tex_desc.Height = h;
 		diffuse_tex_desc.MipLevels = 1;
 		diffuse_tex_desc.ArraySize = 1;
-		diffuse_tex_desc.Format = SurfaceFormat::R8G8B8A8_UNORM;
+		diffuse_tex_desc.Format = tgt_fmt;
 
 		TextureResource diffuse_res;
 		diffuse_res.Width = w;
 		diffuse_res.Height = h;
-		diffuse_res.Format = SurfaceFormat::R8G8B8A8_UNORM;
-		diffuse_res.Data = diffuse_data.get();
+		diffuse_res.Format = src_fmt;
+		diffuse_res.Data = src;
 
 		return std::make_unique<Texture2D>(diffuse_tex_desc, &diffuse_res);
+	}
+
+	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> loadTexture(const char* filename) const
+	{
+		using Vcl::Graphics::SurfaceFormat;
+
+		int force_channels = 0;
+		int w, h, n;
+		ImageType diffuse_data(stbi_load(filename, &w, &h, &n, force_channels), stbi_image_free);
+		SurfaceFormat input_format = SurfaceFormat::R8G8B8A8_UNORM;
+		if (n == 1)
+			input_format = SurfaceFormat::R8_UNORM;
+		if (n == 3)
+			input_format = SurfaceFormat::R8G8B8_UNORM;
+
+		return createTexture(w, h, SurfaceFormat::R8G8B8A8_UNORM, diffuse_data.get(), input_format);
+	}
+
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 4>
+		createPyramidTextures
+		(
+			float size, float height, size_t resolution, size_t bumpmap_bpp
+		) const
+	{
+		using Vcl::Graphics::Runtime::OpenGL::Texture2D;
+		using Vcl::Graphics::SurfaceFormat;
+		using RGBA8 = std::array<uint8_t, 4>;
+
+		std::array<std::unique_ptr<Texture2D>, 4> textures;
+
+		// Create a dummy albedo map in a medium grey
+		RGBA8 blue = {   0,   0,   0, 255 };
+		RGBA8 grey = { 127, 127, 127, 255 };
+		std::vector<RGBA8> albedo_map(resolution*resolution, grey);
+		textures[0] = createTexture(resolution, resolution, SurfaceFormat::R8G8B8A8_UNORM, albedo_map.data(), SurfaceFormat::R8G8B8A8_UNORM);
+		
+		const float incr = size / (resolution - 1);
+		const float lower = 0.1f * size;
+		const float mid = 0.5f * size;
+		const float upper = 0.9f * size;
+		std::vector<float> height_map(resolution*resolution, 0);
+		std::vector<RGBA8> normal_map(resolution*resolution, blue);
+		for (size_t y = 0; y < resolution; y++)
+		{
+			for (size_t x = 0; x < resolution; x++)
+			{
+				const size_t idx = y * resolution + x;
+				const float curr_x = x * incr;
+				const float curr_y = y * incr;
+
+				float height_x = 0;
+				Eigen::Vector3f normal_x = Eigen::Vector3f::Zero();
+				if (curr_x < lower)
+				{
+					height_x = 0;
+					normal_x = {0, 0, height};
+				}
+				else if (curr_x < mid)
+				{
+					height_x = height * abs(curr_x - lower) / (mid - lower);
+					normal_x = { -height, 0, mid - lower };
+				}
+				else if (curr_x < upper)
+				{
+					height_x = height * abs(upper - curr_x) / (upper - mid);
+					normal_x = { height, 0, upper - mid };
+				}
+				else
+				{
+					height_x = 0;
+					normal_x = { 0, 0, height };
+				}
+
+				float height_y = 0;
+				Eigen::Vector3f normal_y = Eigen::Vector3f::Zero();
+				if (curr_y < lower)
+				{
+					height_y = 0;
+					normal_y = { 0, 0, height };
+				}
+				else if (curr_y < mid)
+				{
+					height_y = height * abs(curr_y - lower) / (mid - lower);
+					normal_y = { 0, -height, mid - lower };
+				}
+				else if (curr_y < upper)
+				{
+					height_y = height * abs(upper - curr_y) / (upper - mid);
+					normal_y = { 0, height, upper - mid };
+				}
+				else
+				{
+					height_y = 0;
+					normal_y = { 0, 0, height };
+				}
+
+				if (height_x < height_y)
+				{
+					height_map[idx] = height_x;
+					normal_x.normalize();
+					normal_map[idx][0] = static_cast<uint8_t>(255 * (0.5f * normal_x[0] + 0.5f));
+					normal_map[idx][1] = static_cast<uint8_t>(255 * (0.5f * normal_x[1] + 0.5f));
+					normal_map[idx][2] = static_cast<uint8_t>(255 * (0.5f * normal_x[2] + 0.5f));
+				}
+				else
+				{
+					height_map[idx] = height_y;
+					normal_y.normalize();
+					normal_map[idx][0] = static_cast<uint8_t>(255 * (0.5f * normal_y[0] + 0.5f));
+					normal_map[idx][1] = static_cast<uint8_t>(255 * (0.5f * normal_y[1] + 0.5f));
+					normal_map[idx][2] = static_cast<uint8_t>(255 * (0.5f * normal_y[2] + 0.5f));
+				}
+			}
+		}
+		textures[1] = createTexture(resolution, resolution, SurfaceFormat::R8G8B8A8_UNORM, normal_map.data(), SurfaceFormat::R8G8B8A8_UNORM);
+		textures[2] = createTexture(resolution, resolution, SurfaceFormat::R8G8B8A8_UNORM, normal_map.data(), SurfaceFormat::R8G8B8A8_UNORM);
+
+		if (bumpmap_bpp == 8)
+		{
+			std::vector<uint8_t> quantized_height_map(resolution*resolution, 0);
+			std::transform(height_map.begin(), height_map.end(), quantized_height_map.begin(), [height](float h)
+			{
+				return std::numeric_limits<uint8_t>::max() * h / height;
+			});			
+			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R8_UNORM, quantized_height_map.data(), SurfaceFormat::R8_UNORM);
+		}
+		else if (bumpmap_bpp == 16)
+		{
+			std::vector<uint16_t> quantized_height_map(resolution*resolution, 0);
+			std::transform(height_map.begin(), height_map.end(), quantized_height_map.begin(), [height](float h)
+			{
+				return std::numeric_limits<uint16_t>::max() * h / height;
+			});
+			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R16_UNORM, quantized_height_map.data(), SurfaceFormat::R16_UNORM);
+		}
+		else if (bumpmap_bpp == 32)
+		{
+			std::vector<float> quantized_height_map(resolution*resolution, 0);
+			std::transform(height_map.begin(), height_map.end(), quantized_height_map.begin(), [height](float h)
+			{
+				return h / height;
+			});
+			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R32_FLOAT, quantized_height_map.data(), SurfaceFormat::R32_FLOAT);
+		}
+
+		return textures;
 	}
 
 private:
@@ -320,13 +513,18 @@ private:
 private:
 	std::unique_ptr<Vcl::Graphics::Camera> _camera;
 
+	//! Selected scene
+	int _scene{ 0 };
+
 	//! Selected bump-mapping technique
 	int _bumpMethod{ 0 };
-	
-	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _diffuseMap;
-	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _specularMap;
-	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _normalMap;
-	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> _heightMap;
+
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _diffuseMap;
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _normalObjMap;
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _normalTanMap;
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _heightMap;
+
+	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Sampler> _linearSampler;
 
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _simplePS;
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _objectNormalmapPS;

@@ -22,7 +22,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#version 430 core
+#version 450 core
 #extension GL_ARB_enhanced_layouts : enable
 
 #include "wrinkledsurfaces.h"
@@ -55,9 +55,9 @@ layout(location = 0) out vec4 FragColour;
 // Shader Constants
 ////////////////////////////////////////////////////////////////////////////////
 layout(location = 0) uniform sampler2D DiffuseMap;
-layout(location = 1) uniform sampler2D SpecularMap;
-layout(location = 2) uniform sampler2D HeightMap;
-layout(location = 3) uniform sampler2D NormalMap;
+layout(location = 1) uniform sampler2D HeightMap;
+layout(location = 2) uniform sampler2D NormalObjMap;
+layout(location = 3) uniform sampler2D NormalTanMap;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Specialization Constants
@@ -79,7 +79,7 @@ const vec4 point_light = vec4(-1, 0, 1, 1);
 void main(void)
 {
 	const vec3 albedo = texture(DiffuseMap, In.TexCoords).rgb;
-	const vec3 specular = texture(SpecularMap, In.TexCoords).rgb;
+	const vec3 specular = vec3(1);
 	const float shininess = 16;
 
 	// Different ways to determine the surface normal
@@ -88,11 +88,13 @@ void main(void)
 	{
 	case 1: // Object space normal mapping
 	{
+		vec3 N_obj = 2 * texture(NormalObjMap, In.TexCoords).xyz - 1;
+		N = normalize(mat3(NormalMatrix) * N_obj);
 		break;
 	}	
 	case 2: // Tangents space normal mapping
 	{
-		vec3 N_ts = 2 * texture(NormalMap, In.TexCoords).xyz - 1;
+		vec3 N_ts = 2 * texture(NormalTanMap, In.TexCoords).xyz - 1;
 
 		vec3 T_vs, B_vs, N_ws;
 		T_vs = In.Tangent;
@@ -100,13 +102,12 @@ void main(void)
 		N_ws = mat3(T_vs, B_vs, N) * N_ts;
 
 		N = normalize(N_ws);
-
 		break;
 	}
 	case 3: // Pertubated normals
 	case 4: // Screen space normals for displacement mapping
 	{
-		N = perturbNormal(In.Position, In.Normal, dHdxy_fwd(HeightMap, In.TexCoords, 0.01));
+		N = perturbNormal(In.Position, N, dHdxy_fwd(HeightMap, In.TexCoords, 0.1));
 		break;
 	}
 	}
