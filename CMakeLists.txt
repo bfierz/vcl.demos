@@ -48,6 +48,43 @@ if (VCL_DEMOS_STANDALONE_PROJECT)
 	add_subdirectory(${VCL_SOURCE_DIR}/src EXCLUDE_FROM_ALL)
 endif()
 
+# Add the windows library
+option(GLFW_BUILD_DOCS "" OFF)
+option(GLFW_BUILD_EXAMPLES "" OFF)
+option(GLFW_BUILD_TESTS "" OFF)
+option(GLFW_INSTALL "" OFF)
+add_subdirectory(externals/glfw)
+set_target_properties(glfw PROPERTIES FOLDER 3rdParty)
+
+# Configure ImGui
+add_library(imgui STATIC "")
+target_include_directories(imgui
+	PUBLIC
+		${GLEW_INCLUDE_DIR}
+		externals/imgui
+		externals/imgui/examples
+)
+target_sources(imgui
+	PRIVATE
+		externals/imgui/examples/imgui_impl_glfw.cpp
+		externals/imgui/examples/imgui_impl_glfw.h
+		externals/imgui/examples/imgui_impl_opengl3.cpp
+		externals/imgui/examples/imgui_impl_opengl3.h
+		externals/imgui/imconfig.h
+		externals/imgui/imgui.cpp
+		externals/imgui/imgui.h
+		externals/imgui/imgui_draw.cpp
+		externals/imgui/imgui_internal.h
+		externals/imgui/stb_rect_pack.h
+		externals/imgui/stb_textedit.h
+		externals/imgui/stb_truetype.h
+)
+target_link_libraries(imgui 
+	${GLEW_LIBRARY_RELEASE}
+	glfw
+)
+set_target_properties(imgui PROPERTIES FOLDER 3rdParty)
+
 # Actual demos
 add_subdirectory(graphics/colourtemperature)
 add_subdirectory(graphics/wrinkledsurfaces)

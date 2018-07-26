@@ -6,15 +6,12 @@ message(STATUS "Configuring 'colourtemperature'")
 # GLSL compiler
 include(${VCL_SOURCE_DIR}/src/cmake/VCLCompileGLSL.cmake)
 
-# NanoGUI
-set(VCL_NANOGUI_INCLUDE CACHE PATH "Include directory of NanoGUI")
-set(VCL_NANOGUI_DEBUG_LIBRARY CACHE FILEPATH "NanoGUI library")
-set(VCL_NANOGUI_RELEASE_LIBRARY CACHE FILEPATH "NanoGUI library")
-
 # Find includes in corresponding build directories
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(INC
+	../application.h
+	../basescene.h
 )
 
 set(SRC
@@ -50,14 +47,11 @@ vclcompileglsl(
 )
 set(COMPILEDSHADERS ${COMPILEDSHADERS_0} ${COMPILEDSHADERS_1})
 
-# Include dependencies
-include_directories(${VCL_NANOGUI_INCLUDE})
-
 add_executable(colourtemperature ${SRC} ${INC} ${SHADERS} ${COMPILEDSHADERS})
 set_target_properties(colourtemperature PROPERTIES FOLDER graphics)
 
 target_link_libraries(colourtemperature
 	vcl_graphics
-	debug ${VCL_NANOGUI_DEBUG_LIBRARY}
-	optimized ${VCL_NANOGUI_RELEASE_LIBRARY}
+	glfw
+	imgui
 )

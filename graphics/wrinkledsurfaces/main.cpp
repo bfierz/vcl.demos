@@ -206,7 +206,7 @@ public:
 		_linearSampler = std::make_unique<Sampler>(desc);
 
 		// Load texture resources
-		auto textures = createPyramidTextures(2, 0.1f, 256, 16);
+		auto textures = createPyramidTextures(2, 0.1f, 256, 8);
 		_diffuseMap  [0] = std::move(textures[0]);
 		_normalObjMap[0] = std::move(textures[1]);
 		_normalTanMap[0] = std::move(textures[2]);
