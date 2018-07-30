@@ -62,14 +62,14 @@ target_include_directories(imgui
 	PUBLIC
 		${GLEW_INCLUDE_DIR}
 		externals/imgui
-		externals/imgui/examples
+		graphics/imgui
 )
 target_sources(imgui
 	PRIVATE
-		externals/imgui/examples/imgui_impl_glfw.cpp
-		externals/imgui/examples/imgui_impl_glfw.h
-		externals/imgui/examples/imgui_impl_opengl3.cpp
-		externals/imgui/examples/imgui_impl_opengl3.h
+		graphics/imgui/imgui_impl_glfw.cpp
+		graphics/imgui/imgui_impl_glfw.h
+		graphics/imgui/imgui_impl_opengl3.cpp
+		graphics/imgui/imgui_impl_opengl3.h
 		externals/imgui/imconfig.h
 		externals/imgui/imgui.cpp
 		externals/imgui/imgui.h

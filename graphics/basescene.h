@@ -33,6 +33,10 @@
 // ImGui
 #include <imgui.h>
 
+// VCL
+#include <vcl/rtti/metatype.h>
+#include <vcl/rtti/metatypeconstructor.inl>
+
 class BaseScene
 {
 	VCL_DECLARE_ROOT_METAOBJECT(BaseScene)
@@ -63,23 +67,53 @@ protected:
 		const auto* type = obj.metaType();
 		for (const auto* attr : type->attributes())
 		{
-			std::any value;
-			attr->get(&obj, value);
-
-			if (value.type() == typeid(bool))
+			if (attr->isEnum())
 			{
-				auto* ui_value = std::any_cast<bool>(&value);
-				if (ImGui::Checkbox(attr->name().data(), ui_value))
+				auto* enum_attr = static_cast<const Vcl::RTTI::EnumAttributeBase*>(attr);
+				const auto nr_enums = enum_attr->count();
+
+				std::string value;
+				attr->get(&obj, value);
+
+				static ImGuiComboFlags flags = 0;
+				if (ImGui::BeginCombo(attr->name().data(), value.c_str(), flags))
 				{
-					attr->set(&obj, value);
+					std::string old_value = value;
+					for (uint32_t n = 0; n < nr_enums; n++)
+					{
+						const auto item = enum_attr->enumName(n);
+						bool is_selected = (value == item);
+						if (ImGui::Selectable(item.c_str(), is_selected))
+							value = item;
+						if (is_selected)
+							ImGui::SetItemDefaultFocus();
+					}
+					ImGui::EndCombo();
+
+					if (value != old_value)
+						attr->set(&obj, value);
 				}
 			}
-			else if (value.type() == typeid(float))
+			else
 			{
-				auto* ui_value = std::any_cast<float>(&value);
-				if (ImGui::InputFloat(attr->name().data(), ui_value))
+				std::any value;
+				attr->get(&obj, value);
+
+				if (value.type() == typeid(bool))
 				{
-					attr->set(&obj, value);
+					auto* ui_value = std::any_cast<bool>(&value);
+					if (ImGui::Checkbox(attr->name().data(), ui_value))
+					{
+						attr->set(&obj, value);
+					}
+				}
+				else if (value.type() == typeid(float))
+				{
+					auto* ui_value = std::any_cast<float>(&value);
+					if (ImGui::InputFloat(attr->name().data(), ui_value))
+					{
+						attr->set(&obj, value);
+					}
 				}
 			}
 		}

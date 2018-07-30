@@ -39,6 +39,8 @@ class Application
 {
 public:
 	Application(absl::string_view application_name, unsigned int width, unsigned int height)
+	: _width{width}
+	, _height{height}
 	{
 		glfwSetErrorCallback(glfwErrorCallback);
 		if (!glfwInit())
@@ -50,10 +52,15 @@ public:
 		_window = glfwCreateWindow(width, height, application_name.data(), nullptr, nullptr);
 		if (_window == nullptr)
 			throw std::runtime_error("Could not initialize GLFW window");
+		
+		glfwSetWindowUserPointer(_window, this);
+		glfwSetMouseButtonCallback(_window, onMouseButton);
+		glfwSetCursorPosCallback(_window, onMouseMove);
+
 		glfwMakeContextCurrent(_window);
 		glfwSwapInterval(1); // Enable V-Sync
 
-							 // Setup OpenGL environment
+		// Setup OpenGL environment
 		glewInit();
 
 		// Setup Dear ImGui binding
@@ -63,8 +70,13 @@ public:
 		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;  // Enable Keyboard Controls
 		//io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;   // Enable Gamepad Controls
 
-		ImGui_ImplGlfw_InitForOpenGL(_window, true);
+		ImGui_ImplGlfw_InitForOpenGL(_window, false);
 		ImGui_ImplOpenGL3_Init("#version 460");
+
+		// Manually install the IO callbacks, due to overwriteing some of them here
+		glfwSetScrollCallback(_window, ImGui_ImplGlfw_ScrollCallback);
+		glfwSetKeyCallback(_window, ImGui_ImplGlfw_KeyCallback);
+		glfwSetCharCallback(_window, ImGui_ImplGlfw_CharCallback);
 
 		// Setup style
 		//ImGui::StyleColorsDark();
@@ -90,6 +102,15 @@ public:
 
 	template<typename Callback>
 	void setUIDrawCallback(Callback&& callback) { _draw_ui_callback = callback; }
+
+	template<typename Callback>
+	void setMouseButtonCallback(Callback&& callback) { _on_mouse_button = callback; }
+
+	template<typename Callback>
+	void setMouseMoveCallback(Callback&& callback) { _on_mouse_move = callback; }
+
+	unsigned int width() const { return _width; }
+	unsigned int height() const { return _height; }
 
 	int run()
 	{
@@ -123,6 +144,22 @@ private:
 		std::cerr << "Glfw Error " << error << ": " << description << std::endl;
 	}
 
+	static void onMouseButton(GLFWwindow* window, int button, int action, int mods)
+	{
+		ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+
+		auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+		if (app->_on_mouse_button)
+			app->_on_mouse_button(*app, button, action, mods);
+	}
+
+	static void onMouseMove(GLFWwindow* window, double xpos, double ypos)
+	{
+		auto app = static_cast<Application*>(glfwGetWindowUserPointer(window));
+		if (app->_on_mouse_move)
+			app->_on_mouse_move(*app, xpos, ypos);
+	}
+
 	/// Main window
 	GLFWwindow* _window{ nullptr };
 
@@ -131,4 +168,16 @@ private:
 
 	/// UI drawing callback
 	std::function<void(Application&)> _draw_ui_callback;
+
+	/// Mouse button events
+	std::function<void(Application&, int, int, int)> _on_mouse_button;
+
+	/// Mouse move events
+	std::function<void(Application&, double, double)> _on_mouse_move;
+
+	/// Width of the application window
+	unsigned int _width{ 0 };
+
+	/// Height of the application window
+	unsigned int _height{ 0 };
 };

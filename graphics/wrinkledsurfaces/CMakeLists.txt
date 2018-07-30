@@ -15,6 +15,8 @@ set(VCL_NANOGUI_RELEASE_LIBRARY CACHE FILEPATH "NanoGUI library")
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(INC
+	../application.h
+	../basescene.h
 	stb_image.h
 )
 
@@ -75,6 +77,8 @@ target_link_libraries(wrinkledsurfaces
 	vcl_graphics
 	debug ${VCL_NANOGUI_DEBUG_LIBRARY}
 	optimized ${VCL_NANOGUI_RELEASE_LIBRARY}
+	glfw
+	imgui
 )
 
 # Copy the resources to the binary directory

@@ -33,15 +33,6 @@
 // GSL
 #include <gsl/gsl>
 
-// NanoGUI
-#include <nanogui/combobox.h>
-#include <nanogui/label.h>
-#include <nanogui/layout.h>
-#include <nanogui/screen.h>
-#include <nanogui/slider.h>
-#include <nanogui/textbox.h>
-#include <nanogui/window.h>
-
 // VCL
 #include <vcl/geometry/meshfactory.h>
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
@@ -52,6 +43,9 @@
 #include <vcl/graphics/runtime/opengl/graphicsengine.h>
 #include <vcl/graphics/camera.h>
 #include <vcl/graphics/trackballcameracontroller.h>
+
+#include "../application.h"
+#include "../basescene.h"
 
 #include "shaders/solidwireframe.h"
 #include "solidwireframe.vert.spv.h"
@@ -64,14 +58,12 @@ extern "C"
 	_declspec(dllexport) unsigned int NvOptimusEnablement = 0x00000001;
 }
 
-class SolidWireframeExample : public nanogui::Screen
+class SolidWireframeExample : public BaseScene
 {
+	VCL_DECLARE_METAOBJECT(SolidWireframeExample)
 public:
 	SolidWireframeExample()
-	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example")
 	{
-		using namespace nanogui;
-
 		using Vcl::Graphics::Runtime::OpenGL::Buffer;
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
 		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
@@ -100,22 +92,22 @@ public:
 		if (!Shader::isSpirvSupported())
 			throw std::runtime_error("SPIR-V is not supported.");
 
-		Window *window = new Window(this, "Detail Method");
-		window->setPosition(Vector2i(15, 15));
-		window->setLayout(new GroupLayout());
-
-		Widget *panel = new Widget(window);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-
-		new Label(panel, "Method", "sans-bold");
-		
-		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
-		method_selection->setCallback([this](int idx)
-		{
-			_bumpMethod = idx;
-		});
-		
-		performLayout();
+		//Window *window = new Window(this, "Detail Method");
+		//window->setPosition(Vector2i(15, 15));
+		//window->setLayout(new GroupLayout());
+		//
+		//Widget *panel = new Widget(window);
+		//panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
+		//
+		//new Label(panel, "Method", "sans-bold");
+		//
+		//auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
+		//method_selection->setCallback([this](int idx)
+		//{
+		//	_bumpMethod = idx;
+		//});
+		//
+		//performLayout();
 
 		// Initialize content
 		_camera = std::make_unique<Camera>(std::make_shared<Vcl::Graphics::OpenGL::MatrixFactory>());
@@ -185,34 +177,27 @@ public:
 	}
 
 public:
-	bool mouseButtonEvent(const nanogui::Vector2i &p, int button, bool down, int modifiers) override
+	void onMouseButton(Application& app, int button, int action, int mods)
 	{
-		if (Widget::mouseButtonEvent(p, button, down, modifiers))
-			return true;
-
-		if (down)
+		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 		{
-			_cameraController->startRotate((float) p.x() / (float) width(), (float) p.y() / (float) height());
+			double x, y;
+			glfwGetCursorPos(app.window(), &x, &y);
+			_cameraController->startRotate((float)x / (float)app.width(), (float)y / (float)app.height());
 		}
 		else
 		{
 			_cameraController->endRotate();
 		}
-
-		return true;
 	}
 
-	bool mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int button, int modifiers) override
+	void onMouseMove(Application& app, double xpos, double ypos)
 	{
-		if (Widget::mouseMotionEvent(p, rel, button, modifiers))
-			return true;
-
-		_cameraController->rotate((float)p.x() / (float)width(), (float)p.y() / (float)height());
-		return true;
+		_cameraController->rotate((float)xpos / (float)app.width(), (float)ypos / (float)app.height());
 	}
 
 public:
-	void drawContents() override
+	void draw(Application& app) override
 	{
 		_engine->beginFrame();
 
@@ -221,7 +206,7 @@ public:
 
 		// View on the scene
 		auto cbuf_camera = _engine->requestPerFrameConstantBuffer<PerFrameCameraData>();
-		cbuf_camera->Viewport = vec4(0, 0, width(), height());
+		cbuf_camera->Viewport = vec4(0, 0, app.width(), app.height());
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
@@ -256,7 +241,7 @@ private:
 		cmd_queue->setPrimitiveType(primitive_type, 3);
 		cmd_queue->draw(_nrMeshVertices);
 	}
-
+	
 private:
 	std::unique_ptr<Vcl::Graphics::Runtime::GraphicsEngine> _engine;
 
@@ -266,9 +251,6 @@ private:
 private:
 	std::unique_ptr<Vcl::Graphics::Camera> _camera;
 
-	//! Selected bump-mapping technique
-	int _bumpMethod{ 0 };
-	
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _solidwireframePS;
 
 	/// Geometry (position, normal)
@@ -278,27 +260,28 @@ private:
 	uint32_t _nrMeshVertices;
 };
 
+VCL_RTTI_BASES(SolidWireframeExample, BaseScene)
+
+VCL_RTTI_CTOR_TABLE_BEGIN(SolidWireframeExample)
+	Vcl::RTTI::Constructor<SolidWireframeExample>()
+VCL_RTTI_CTOR_TABLE_END(SolidWireframeExample)
+
+VCL_DEFINE_METAOBJECT(SolidWireframeExample)
+{
+	VCL_RTTI_REGISTER_BASES(SolidWireframeExample);
+	VCL_RTTI_REGISTER_CTORS(SolidWireframeExample);
+}
+
 int main(int /* argc */, char ** /* argv */)
 {
-	try
-	{
-		nanogui::init();
+	Application app{ "VCL Wrinkled Surfaces Example", 768, 768 };
 
-		{
-			nanogui::ref<SolidWireframeExample> app = new SolidWireframeExample();
-			app->drawAll();
-			app->setVisible(true);
-			nanogui::mainloop();
-		}
+	// Demo content
+	SolidWireframeExample scene;
+	app.setMouseButtonCallback([&scene](Application& app, int button, int action, int mods) {scene.onMouseButton(app, button, action, mods); });
+	app.setMouseMoveCallback([&scene](Application& app, double xpos, double ypos) {scene.onMouseMove(app, xpos, ypos); });
+	app.setSceneDrawCallback([&scene](Application& app) {scene.draw(app); });
+	app.setUIDrawCallback([&scene](Application& app) {scene.drawUI(app); });
 
-		nanogui::shutdown();
-	}
-	catch (const std::runtime_error &e)
-	{
-		std::string error_msg = std::string("Caught a fatal error: ") + std::string(e.what());
-		std::cerr << error_msg << std::endl;
-		return -1;
-	}
-
-	return 0;
+	return app.run();
 }

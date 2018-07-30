@@ -6,15 +6,12 @@ message(STATUS "Configuring 'solidwireframe'")
 # GLSL compiler
 include(${VCL_SOURCE_DIR}/src/cmake/VCLCompileGLSL.cmake)
 
-# NanoGUI
-set(VCL_NANOGUI_INCLUDE CACHE PATH "Include directory of NanoGUI")
-set(VCL_NANOGUI_DEBUG_LIBRARY CACHE FILEPATH "NanoGUI library")
-set(VCL_NANOGUI_RELEASE_LIBRARY CACHE FILEPATH "NanoGUI library")
-
 # Find includes in corresponding build directories
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(INC
+	../application.h
+	../basescene.h
 )
 
 set(SRC
@@ -64,6 +61,6 @@ set_target_properties(solidwireframe PROPERTIES FOLDER graphics)
 target_link_libraries(solidwireframe
 	vcl_geometry
 	vcl_graphics
-	debug ${VCL_NANOGUI_DEBUG_LIBRARY}
-	optimized ${VCL_NANOGUI_RELEASE_LIBRARY}
+	glfw
+	imgui
 )

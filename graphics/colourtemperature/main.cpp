@@ -38,9 +38,6 @@
 #include <gsl/gsl>
 
 // VCL
-#include <vcl/rtti/metatype.h>
-#include <vcl/rtti/metatypeconstructor.inl>
-
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
 #include <vcl/graphics/opengl/context.h>
 #include <vcl/graphics/runtime/opengl/resource/shader.h>
