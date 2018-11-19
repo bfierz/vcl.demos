@@ -34,18 +34,21 @@ list(APPEND CURR_INC_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CURR_INC_DIRS_0})
 
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/solidwireframe.vert
+	"opengl"
 	"SolidWireframeVert"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_0
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/solidwireframe.geom
+	"opengl"
 	"SolidWireframeGeom"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_1
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/solidwireframe.frag
+	"opengl"
 	"SolidWireframeFrag"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_2

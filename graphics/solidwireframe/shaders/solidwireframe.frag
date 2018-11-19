@@ -76,10 +76,12 @@ void main(void)
 	baryc.xy = In.BarycentricCoords;
 	baryc.z = 1 - In.BarycentricCoords.x - In.BarycentricCoords.y;
 	vec3 deltas = fwidth(baryc);
-	baryc = smoothstep(deltas, 2 * deltas, baryc);
+	vec3 smoothing = deltas * Smoothing;
+	vec3 thickness = deltas * Thickness;
+	baryc = smoothstep(thickness, thickness + smoothing, baryc);
 
 	float min_baryc = min(baryc.x, min(baryc.y, baryc.z));
-	albedo *= min_baryc;
+	albedo = mix(Colour, albedo, min_baryc);
 
 	vec3 N = In.Normal;
 

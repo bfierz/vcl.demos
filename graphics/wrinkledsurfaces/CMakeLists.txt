@@ -43,24 +43,28 @@ list(APPEND CURR_INC_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CURR_INC_DIRS_0})
 
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.vert
+	"opengl"
 	"WrinkledSurfacesVert"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_0
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.tesc
+	"opengl"
 	"WrinkledSurfacesCont"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_1
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.tese
+	"opengl"
 	"WrinkledSurfacesEval"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_2
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.frag
+	"opengl"
 	"WrinkledSurfacesFrag"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_3

@@ -35,12 +35,14 @@ list(APPEND CURR_INC_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CURR_INC_DIRS_0})
 
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/temperature.vert
+	"opengl"
 	"TemperatureVert"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_0
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/temperature.frag
+	"opengl"
 	"TemperatureFrag"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_1

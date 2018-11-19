@@ -92,23 +92,6 @@ public:
 		if (!Shader::isSpirvSupported())
 			throw std::runtime_error("SPIR-V is not supported.");
 
-		//Window *window = new Window(this, "Detail Method");
-		//window->setPosition(Vector2i(15, 15));
-		//window->setLayout(new GroupLayout());
-		//
-		//Widget *panel = new Widget(window);
-		//panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-		//
-		//new Label(panel, "Method", "sans-bold");
-		//
-		//auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
-		//method_selection->setCallback([this](int idx)
-		//{
-		//	_bumpMethod = idx;
-		//});
-		//
-		//performLayout();
-
 		// Initialize content
 		_camera = std::make_unique<Camera>(std::make_shared<Vcl::Graphics::OpenGL::MatrixFactory>());
 		_camera->encloseInFrustum({ 0, 0, 0 }, { 0, -1, 1 }, 2.0f, { 0, 0, 1 });
@@ -116,20 +99,21 @@ public:
 		_cameraController = std::make_unique<Vcl::Graphics::TrackballCameraController>();
 		_cameraController->setCamera(_camera.get());
 
-		// Shader specializations
-		//std::array<unsigned int, 1> indices = { 0 };
-		//std::array<unsigned int, 1> solid_wireframe_shader = { 0 };
-
 		// Initialize solid-wireframe shader
 		InputLayoutDescription layout =
 		{
-			{ "position", SurfaceFormat::R32G32B32_FLOAT, 0, 0,  0, VertexDataClassification::VertexDataPerObject, 0 },
-			{ "normal",   SurfaceFormat::R32G32B32_FLOAT, 0, 0, 12, VertexDataClassification::VertexDataPerObject, 0 },
+			{
+				{ 0, 12, VertexDataClassification::VertexDataPerObject },
+				{ 1, 12, VertexDataClassification::VertexDataPerObject }},
+			{
+				{ "position", SurfaceFormat::R32G32B32_FLOAT, 1, 0,  0 },
+				{ "normal",   SurfaceFormat::R32G32B32_FLOAT, 1, 0, 12 },
+			}
 		};
 
 		Shader solid_wireframe_vert{ ShaderType::VertexShader,   0, SolidWireframeVert };
 		Shader solid_wireframe_geom{ ShaderType::GeometryShader, 0, SolidWireframeGeom };
-		Shader solid_wireframe_frag{ ShaderType::FragmentShader, 0, SolidWireframeFrag };//, indices, solid_wireframe_shader };
+		Shader solid_wireframe_frag{ ShaderType::FragmentShader, 0, SolidWireframeFrag };
 		PipelineStateDescription solid_wireframe_ps_desc;
 		solid_wireframe_ps_desc.InputLayout = layout;
 		solid_wireframe_ps_desc.VertexShader = &solid_wireframe_vert;
@@ -175,6 +159,9 @@ public:
 		_meshGeometry = std::make_unique<Buffer>(buffer_desc, false, false, &buffer_data);
 		_nrMeshVertices = vb.size();
 	}
+
+	float thickness() const { return _thickness; }
+	void setThickness(float val) { _thickness = val; }
 
 public:
 	void onMouseButton(Application& app, int button, int action, int mods)
@@ -236,6 +223,13 @@ private:
 		cbuf_transform->NormalMatrix = mat4((_camera->view() * M).inverse().transpose());
 		cmd_queue->setConstantBuffer(1, cbuf_transform);
 
+		// View on the scene
+		auto cbuf_config= cmd_queue->requestPerFrameConstantBuffer<SolidWireframeData>();
+		cbuf_config->Colour = vec3(0, 1, 0);
+		cbuf_config->Smoothing = 1;
+		cbuf_config->Thickness = _thickness;
+		cmd_queue->setConstantBuffer(2, cbuf_config);
+
 		// Render the quad
 		cmd_queue->setVertexBuffer(0, *_meshGeometry, 0, 24);
 		cmd_queue->setPrimitiveType(primitive_type, 3);
@@ -258,6 +252,9 @@ private:
 
 	/// Number of vertices
 	uint32_t _nrMeshVertices;
+
+	/// Thickness of the lines
+	float _thickness{ 1.0f };
 };
 
 VCL_RTTI_BASES(SolidWireframeExample, BaseScene)
@@ -266,10 +263,15 @@ VCL_RTTI_CTOR_TABLE_BEGIN(SolidWireframeExample)
 	Vcl::RTTI::Constructor<SolidWireframeExample>()
 VCL_RTTI_CTOR_TABLE_END(SolidWireframeExample)
 
+VCL_RTTI_ATTR_TABLE_BEGIN(SolidWireframeExample)
+	Vcl::RTTI::Attribute<SolidWireframeExample, float>{"Thickness", &SolidWireframeExample::thickness, &SolidWireframeExample::setThickness}
+VCL_RTTI_ATTR_TABLE_END(SolidWireframeExample)
+
 VCL_DEFINE_METAOBJECT(SolidWireframeExample)
 {
 	VCL_RTTI_REGISTER_BASES(SolidWireframeExample);
 	VCL_RTTI_REGISTER_CTORS(SolidWireframeExample);
+	VCL_RTTI_REGISTER_ATTRS(SolidWireframeExample);
 }
 
 int main(int /* argc */, char ** /* argv */)
