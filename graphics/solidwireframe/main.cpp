@@ -160,8 +160,14 @@ public:
 		_nrMeshVertices = vb.size();
 	}
 
+	Colour3f colour() const { return _colour; }
+	void setColour(Colour3f val) { _colour = val; }
+
 	float thickness() const { return _thickness; }
 	void setThickness(float val) { _thickness = val; }
+
+	float smoothing() const { return _smoothing; }
+	void setSmoothing(float val) { _smoothing = val; }
 
 public:
 	void onMouseButton(Application& app, int button, int action, int mods)
@@ -225,8 +231,10 @@ private:
 
 		// View on the scene
 		auto cbuf_config= cmd_queue->requestPerFrameConstantBuffer<SolidWireframeData>();
-		cbuf_config->Colour = vec3(0, 1, 0);
-		cbuf_config->Smoothing = 1;
+		cbuf_config->Colour.x = _colour.r;
+		cbuf_config->Colour.y = _colour.g;
+		cbuf_config->Colour.z = _colour.b;
+		cbuf_config->Smoothing = _smoothing;
 		cbuf_config->Thickness = _thickness;
 		cmd_queue->setConstantBuffer(2, cbuf_config);
 
@@ -247,13 +255,19 @@ private:
 
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _solidwireframePS;
 
-	/// Geometry (position, normal)
+	//! Geometry (position, normal)
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Buffer> _meshGeometry;
 
-	/// Number of vertices
+	//! Number of vertices
 	uint32_t _nrMeshVertices;
 
-	/// Thickness of the lines
+	//! Colour of the overlay
+	Colour3f _colour{ 0, 0, 0 };
+
+	//! Smoothness of the generated overlay
+	float _smoothing{ 1.0f };
+
+	//! Thickness of the lines
 	float _thickness{ 1.0f };
 };
 
@@ -264,6 +278,8 @@ VCL_RTTI_CTOR_TABLE_BEGIN(SolidWireframeExample)
 VCL_RTTI_CTOR_TABLE_END(SolidWireframeExample)
 
 VCL_RTTI_ATTR_TABLE_BEGIN(SolidWireframeExample)
+	Vcl::RTTI::Attribute<SolidWireframeExample, Colour3f>{"Colour", &SolidWireframeExample::colour, &SolidWireframeExample::setColour},
+	Vcl::RTTI::Attribute<SolidWireframeExample, float>{"Smoothing", &SolidWireframeExample::smoothing, &SolidWireframeExample::setSmoothing},
 	Vcl::RTTI::Attribute<SolidWireframeExample, float>{"Thickness", &SolidWireframeExample::thickness, &SolidWireframeExample::setThickness}
 VCL_RTTI_ATTR_TABLE_END(SolidWireframeExample)
 

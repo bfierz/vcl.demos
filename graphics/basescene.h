@@ -37,6 +37,40 @@
 #include <vcl/rtti/metatype.h>
 #include <vcl/rtti/metatypeconstructor.inl>
 
+struct Colour3f
+{
+	float r, g, b;
+};
+
+namespace Vcl
+{
+	template<>
+	inline std::string to_string<Colour3f>(const Colour3f& value)
+	{
+		std::stringstream ss;
+
+		ss << std::to_string(value.r);
+		ss << ", ";
+		ss << std::to_string(value.g);
+		ss << ", ";
+		ss << std::to_string(value.b);
+
+		return ss.str();
+	}
+
+	template<>
+	inline Colour3f from_string<Colour3f>(const std::string& value)
+	{
+		size_t pos = 0;
+		size_t next = 0;
+		const float v0 = std::stof(value, &next);             pos += next;
+		const float v1 = std::stof(value.substr(pos), &next); pos += next;
+		const float v2 = std::stof(value.substr(pos));
+
+		return { v0, v1, v2 };
+	}
+}
+
 class BaseScene
 {
 	VCL_DECLARE_ROOT_METAOBJECT(BaseScene)
@@ -111,6 +145,14 @@ protected:
 				{
 					auto* ui_value = std::any_cast<float>(&value);
 					if (ImGui::InputFloat(attr->name().data(), ui_value))
+					{
+						attr->set(&obj, value);
+					}
+				}
+				else if (value.type() == typeid(Colour3f))
+				{
+					auto* ui_value = std::any_cast<Colour3f>(&value);
+					if (ImGui::ColorEdit3(attr->name().data(), reinterpret_cast<float*>(ui_value)))
 					{
 						attr->set(&obj, value);
 					}

@@ -26,6 +26,7 @@
 #extension GL_ARB_enhanced_layouts : enable
 
 #include "solidwireframe.h"
+#include "solidwireframe.glsl"
 
 ////////////////////////////////////////////////////////////////////////////////
 // Shader Input
@@ -75,13 +76,7 @@ void main(void)
 	vec3 baryc;
 	baryc.xy = In.BarycentricCoords;
 	baryc.z = 1 - In.BarycentricCoords.x - In.BarycentricCoords.y;
-	vec3 deltas = fwidth(baryc);
-	vec3 smoothing = deltas * Smoothing;
-	vec3 thickness = deltas * Thickness;
-	baryc = smoothstep(thickness, thickness + smoothing, baryc);
-
-	float min_baryc = min(baryc.x, min(baryc.y, baryc.z));
-	albedo = mix(Colour, albedo, min_baryc);
+	albedo = solidWireframe(baryc, albedo, Smoothing, Thickness, Colour);
 
 	vec3 N = In.Normal;
 

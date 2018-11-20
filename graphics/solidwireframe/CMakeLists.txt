@@ -23,6 +23,8 @@ set(SHADERS
 	shaders/solidwireframe.vert
 	shaders/solidwireframe.geom
 	shaders/solidwireframe.frag
+
+	shaders/solidwireframe.glsl
 )
 
 source_group("shaders" FILES ${SHADERS})
