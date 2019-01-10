@@ -37,8 +37,7 @@
 // https://docs.knaldtech.com/doku.php?id=derivative_maps_knald
 
 // Evaluate the derivative of the height w.r.t. screen-space using forward differencing (listing 2)
-
-vec2 dHdxy_fwd(sampler2D bump_map, vec2 uv, float scale)
+vec2 dHdxyFwd(sampler2D bump_map, vec2 uv, float scale)
 {
 	vec2 dSTdx = dFdxFine(uv);
 	vec2 dSTdy = dFdyFine(uv);
@@ -49,12 +48,23 @@ vec2 dHdxy_fwd(sampler2D bump_map, vec2 uv, float scale)
 
 	return vec2(dBx, dBy);
 }
-
-vec2 dHdxy(sampler2D bump_map, vec2 uv, float scale)
+vec2 dHdxyDirect(sampler2D bump_map, vec2 uv, float scale)
 {
 	float h = scale * texture(bump_map, uv).x;
 	float dBx = dFdxFine(h);
 	float dBy = dFdyFine(h);
+
+	return vec2(dBx, dBy);
+}
+
+// Evaluate the height derivatives using a preomputed map of partial derivatives
+vec2 dHdxyDerivatives(sampler2D derivative_map, vec2 uv)
+{
+	vec2 dSTdx = dFdxFine(uv);
+	vec2 dSTdy = dFdyFine(uv);
+	vec2 dBdst = 2 * texture(derivative_map, uv).xy - vec2(1);
+	float dBx = dBdst.x * dSTdx.x + dBdst.y * dSTdx.y;
+	float dBy = dBdst.x * dSTdy.x + dBdst.y * dSTdy.y;
 
 	return vec2(dBx, dBy);
 }

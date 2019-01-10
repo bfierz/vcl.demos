@@ -185,20 +185,23 @@ public:
 
 		// Load texture resources
 		auto textures = createPyramidTextures(2, 0.1f, 256, 8);
-		_diffuseMap  [0] = std::move(textures[0]);
-		_normalObjMap[0] = std::move(textures[1]);
-		_normalTanMap[0] = std::move(textures[2]);
-		_heightMap   [0] = std::move(textures[3]);
+		_diffuseMap   [0] = std::move(textures[0]);
+		_normalObjMap [0] = std::move(textures[1]);
+		_normalTanMap [0] = std::move(textures[2]);
+		_heightMap    [0] = std::move(textures[3]);
+		_derivativeMap[0] = std::move(textures[4]);
 
-		_diffuseMap  [1] = loadTexture("textures/wall/diffuse.png");
-		_normalObjMap[1] = loadTexture("textures/wall/normal_obj.png");
-		_normalTanMap[1] = loadTexture("textures/wall/normal_tan.png");
-		_heightMap   [1] = loadTexture("textures/wall/height.png");
+		_diffuseMap   [1] = loadTexture("textures/wall/diffuse.png");
+		_normalObjMap [1] = loadTexture("textures/wall/normal_obj.png");
+		_normalTanMap [1] = loadTexture("textures/wall/normal_tan.png");
+		_heightMap    [1] = loadTexture("textures/wall/height.png");
+		_derivativeMap[1] = loadTexture("textures/wall/height.png");
 
-		_diffuseMap  [2] = loadTexture("textures/dome/diffuse.png");
-		_normalObjMap[2] = loadTexture("textures/dome/normal_obj.png");
-		_normalTanMap[2] = loadTexture("textures/dome/normal_tan.png");
-		_heightMap   [2] = loadTexture("textures/dome/height.png");
+		_diffuseMap   [2] = loadTexture("textures/dome/diffuse.png");
+		_normalObjMap [2] = loadTexture("textures/dome/normal_obj.png");
+		_normalTanMap [2] = loadTexture("textures/dome/normal_tan.png");
+		_heightMap    [2] = loadTexture("textures/dome/height.png");
+		_derivativeMap[2] = loadTexture("textures/dome/height.png");
 	}
 
 	Scene scene() const { return _scene; }
@@ -300,8 +303,9 @@ private:
 		// Textures
 		cmd_queue->setTexture(0, *_diffuseMap[(int)_scene]);
 		cmd_queue->setTexture(1, *_heightMap[(int)_scene]);
-		cmd_queue->setTexture(2, *_normalObjMap[(int)_scene]);
-		cmd_queue->setTexture(3, *_normalTanMap[(int)_scene]);
+		cmd_queue->setTexture(2, *_derivativeMap[(int)_scene]);
+		cmd_queue->setTexture(3, *_normalObjMap[(int)_scene]);
+		cmd_queue->setTexture(4, *_normalTanMap[(int)_scene]);
 
 		// Render the quad
 		cmd_queue->setPrimitiveType(primitive_type, 3);
@@ -350,7 +354,7 @@ private:
 		return createTexture(w, h, SurfaceFormat::R8G8B8A8_UNORM, diffuse_data.get(), input_format);
 	}
 
-	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 4>
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 5>
 		createPyramidTextures
 		(
 			float size, float height, size_t resolution, size_t bumpmap_bpp
@@ -360,10 +364,10 @@ private:
 		using Vcl::Graphics::SurfaceFormat;
 		using RGBA8 = std::array<uint8_t, 4>;
 
-		std::array<std::unique_ptr<Texture2D>, 4> textures;
+		std::array<std::unique_ptr<Texture2D>, 5> textures;
 
 		// Create a dummy albedo map in a medium grey
-		RGBA8 blue = {   0,   0,   0, 255 };
+		RGBA8 blue = {   0,   0, 255, 255 };
 		RGBA8 grey = { 127, 127, 127, 255 };
 		std::vector<RGBA8> albedo_map(resolution*resolution, grey);
 		textures[0] = createTexture(resolution, resolution, SurfaceFormat::R8G8B8A8_UNORM, albedo_map.data(), SurfaceFormat::R8G8B8A8_UNORM);
@@ -373,6 +377,7 @@ private:
 		const float mid = 0.5f * size;
 		const float upper = 0.9f * size;
 		std::vector<float> height_map(resolution*resolution, 0);
+		std::vector<std::array<float, 2>> deriv_map(resolution*resolution, { 0, 0 });
 		std::vector<RGBA8> normal_map(resolution*resolution, blue);
 		for (size_t y = 0; y < resolution; y++)
 		{
@@ -392,12 +397,12 @@ private:
 				else if (curr_x < mid)
 				{
 					height_x = height * abs(curr_x - lower) / (mid - lower);
-					normal_x = { -height, 0, mid - lower };
+					normal_x = { -height, 0, 1 };
 				}
 				else if (curr_x < upper)
 				{
 					height_x = height * abs(upper - curr_x) / (upper - mid);
-					normal_x = { height, 0, upper - mid };
+					normal_x = { height, 0, 1 };
 				}
 				else
 				{
@@ -415,12 +420,12 @@ private:
 				else if (curr_y < mid)
 				{
 					height_y = height * abs(curr_y - lower) / (mid - lower);
-					normal_y = { 0, -height, mid - lower };
+					normal_y = { 0, -height, 1 };
 				}
 				else if (curr_y < upper)
 				{
 					height_y = height * abs(upper - curr_y) / (upper - mid);
-					normal_y = { 0, height, upper - mid };
+					normal_y = { 0, height, 1 };
 				}
 				else
 				{
@@ -431,6 +436,8 @@ private:
 				if (height_x < height_y)
 				{
 					height_map[idx] = height_x;
+					deriv_map[idx][0] = -normal_x[0] / normal_x[2];
+					deriv_map[idx][1] = 0;
 					normal_x.normalize();
 					normal_map[idx][0] = static_cast<uint8_t>(255 * (0.5f * normal_x[0] + 0.5f));
 					normal_map[idx][1] = static_cast<uint8_t>(255 * (0.5f * normal_x[1] + 0.5f));
@@ -439,6 +446,8 @@ private:
 				else
 				{
 					height_map[idx] = height_y;
+					deriv_map[idx][0] = 0;
+					deriv_map[idx][1] = -normal_y[1] / normal_y[2];
 					normal_y.normalize();
 					normal_map[idx][0] = static_cast<uint8_t>(255 * (0.5f * normal_y[0] + 0.5f));
 					normal_map[idx][1] = static_cast<uint8_t>(255 * (0.5f * normal_y[1] + 0.5f));
@@ -457,6 +466,15 @@ private:
 				return std::numeric_limits<uint8_t>::max() * h / height;
 			});			
 			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R8_UNORM, quantized_height_map.data(), SurfaceFormat::R8_UNORM);
+
+			std::vector<std::array<uint8_t, 2>> quantized_deriv_map(resolution*resolution, { 0, 0 });
+			std::transform(deriv_map.begin(), deriv_map.end(), quantized_deriv_map.begin(), [](std::array<float, 2> deriv)
+			{
+				const float r = std::numeric_limits<uint8_t>::max() * (0.5f * deriv[0] + 0.5f);
+				const float g = std::numeric_limits<uint8_t>::max() * (0.5f * deriv[1] + 0.5f);
+				return std::array<uint8_t, 2>{ static_cast<uint8_t>(r), static_cast<uint8_t>(g) };
+			});
+			textures[4] = createTexture(resolution, resolution, SurfaceFormat::R8G8_UNORM, quantized_deriv_map.data(), SurfaceFormat::R8G8_UNORM);
 		}
 		else if (bumpmap_bpp == 16)
 		{
@@ -466,6 +484,15 @@ private:
 				return std::numeric_limits<uint16_t>::max() * h / height;
 			});
 			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R16_UNORM, quantized_height_map.data(), SurfaceFormat::R16_UNORM);
+
+			std::vector<std::array<uint16_t, 2>> quantized_deriv_map(resolution*resolution, { 0, 0 });
+			std::transform(deriv_map.begin(), deriv_map.end(), quantized_deriv_map.begin(), [](std::array<float, 2> deriv)
+			{
+				const float r = std::numeric_limits<uint16_t>::max() * (0.5f * deriv[0] + 0.5f);
+				const float g = std::numeric_limits<uint16_t>::max() * (0.5f * deriv[1] + 0.5f);
+				return std::array<uint16_t, 2>{ static_cast<uint16_t>(r), static_cast<uint16_t>(g) };
+			});
+			textures[4] = createTexture(resolution, resolution, SurfaceFormat::R16G16_UNORM, quantized_deriv_map.data(), SurfaceFormat::R16G16_UNORM);
 		}
 		else if (bumpmap_bpp == 32)
 		{
@@ -475,6 +502,7 @@ private:
 				return h / height;
 			});
 			textures[3] = createTexture(resolution, resolution, SurfaceFormat::R32_FLOAT, quantized_height_map.data(), SurfaceFormat::R32_FLOAT);
+			textures[4] = createTexture(resolution, resolution, SurfaceFormat::R32G32_FLOAT, deriv_map.data(), SurfaceFormat::R32G32_FLOAT);
 		}
 
 		return textures;
@@ -499,6 +527,7 @@ private:
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _normalObjMap;
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _normalTanMap;
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _heightMap;
+	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _derivativeMap;
 
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Sampler> _linearSampler;
 
