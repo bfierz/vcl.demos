@@ -108,8 +108,8 @@ void main(void)
 	case 3: // Pertubated normals
 	case 4: // Screen space normals for displacement mapping
 	{
-		//N = perturbNormal(In.Position, N, dHdxyDirect(HeightMap, In.TexCoords, 0.1));
-		N = perturbNormal(In.Position, N, dHdxyDerivatives(DerivativeMap, In.TexCoords));
+		//N = perturbNormal(In.Position, N, dHdxyFwd(HeightMap, In.TexCoords, 0.1));
+		N = perturbNormal(In.Position, N, dHdxyDerivatives(DerivativeMap, In.TexCoords, 100));
 		break;
 	}
 	}

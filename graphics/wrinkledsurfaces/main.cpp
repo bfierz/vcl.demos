@@ -195,13 +195,13 @@ public:
 		_normalObjMap [1] = loadTexture("textures/wall/normal_obj.png");
 		_normalTanMap [1] = loadTexture("textures/wall/normal_tan.png");
 		_heightMap    [1] = loadTexture("textures/wall/height.png");
-		_derivativeMap[1] = loadTexture("textures/wall/height.png");
+		_derivativeMap[1] = createDerivateMapfromHeightMap("textures/wall/height.png");
 
 		_diffuseMap   [2] = loadTexture("textures/dome/diffuse.png");
 		_normalObjMap [2] = loadTexture("textures/dome/normal_obj.png");
 		_normalTanMap [2] = loadTexture("textures/dome/normal_tan.png");
 		_heightMap    [2] = loadTexture("textures/dome/height.png");
-		_derivativeMap[2] = loadTexture("textures/dome/height.png");
+		_derivativeMap[2] = createDerivateMapfromHeightMap("textures/dome/height.png");
 	}
 
 	Scene scene() const { return _scene; }
@@ -299,6 +299,7 @@ private:
 		cmd_queue->setSampler(1, *_linearSampler);
 		cmd_queue->setSampler(2, *_linearSampler);
 		cmd_queue->setSampler(3, *_linearSampler);
+		cmd_queue->setSampler(4, *_linearSampler);
 
 		// Textures
 		cmd_queue->setTexture(0, *_diffuseMap[(int)_scene]);
@@ -352,6 +353,46 @@ private:
 			input_format = SurfaceFormat::R8G8B8_UNORM;
 
 		return createTexture(w, h, SurfaceFormat::R8G8B8A8_UNORM, diffuse_data.get(), input_format);
+	}
+
+	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> createDerivateMapfromHeightMap(const char* filename) const
+	{
+		using Vcl::Graphics::SurfaceFormat;
+
+		int force_channels = 0;
+		int w, h, n;
+		ImageType height_data(stbi_load(filename, &w, &h, &n, force_channels), stbi_image_free);
+
+		ImageType derivative_data((uint8_t*) malloc(2*w*h), free);
+		for (int y = 0; y < h; y++)
+		{
+			for (int x = 0; x < w; x++)
+			{
+				// Use a sobel filter to generate the derivatives
+				const int x0 = x - 1 >= 0 ? x - 1 : x;
+				const int x1 = x;
+				const int x2 = x + 1 <  w ? x + 1 : x;
+				const int y0 = y - 1 >= 0 ? y - 1 : y;
+				const int y1 = y;
+				const int y2 = y + 1 <  h ? y + 1 : y;
+				const float h00 = 2.0f * (static_cast<float>(height_data[n*(y0*w + x0)]) / 255.0f) - 1.0f;
+				const float h01 = 2.0f * (static_cast<float>(height_data[n*(y0*w + x1)]) / 255.0f) - 1.0f;
+				const float h02 = 2.0f * (static_cast<float>(height_data[n*(y0*w + x2)]) / 255.0f) - 1.0f;
+				const float h10 = 2.0f * (static_cast<float>(height_data[n*(y1*w + x0)]) / 255.0f) - 1.0f;
+				const float h11 = 2.0f * (static_cast<float>(height_data[n*(y1*w + x1)]) / 255.0f) - 1.0f;
+				const float h12 = 2.0f * (static_cast<float>(height_data[n*(y1*w + x2)]) / 255.0f) - 1.0f;				
+				const float h20 = 2.0f * (static_cast<float>(height_data[n*(y2*w + x0)]) / 255.0f) - 1.0f;
+				const float h21 = 2.0f * (static_cast<float>(height_data[n*(y2*w + x1)]) / 255.0f) - 1.0f;
+				const float h22 = 2.0f * (static_cast<float>(height_data[n*(y2*w + x2)]) / 255.0f) - 1.0f;
+
+				const float dx = (h02 - h00) + 2*(h12 - h10) + (h22 - h20);
+				const float dy = (h20 - h00) + 2*(h21 - h01) + (h22 - h02);
+				derivative_data[2*(y1*w + x1) + 0] = static_cast<uint8_t>(255.0f * (0.5f * std::max(0.0f, std::min(dx, 1.0f)) + 0.5f));
+				derivative_data[2*(y1*w + x1) + 1] = static_cast<uint8_t>(255.0f * (0.5f * std::max(0.0f, std::min(dy, 1.0f)) + 0.5f));
+			}
+		}
+
+		return createTexture(w, h, SurfaceFormat::R8G8_UNORM, derivative_data.get(), SurfaceFormat::R8G8_UNORM);
 	}
 
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 5>

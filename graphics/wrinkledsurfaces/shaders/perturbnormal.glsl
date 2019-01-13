@@ -58,11 +58,11 @@ vec2 dHdxyDirect(sampler2D bump_map, vec2 uv, float scale)
 }
 
 // Evaluate the height derivatives using a preomputed map of partial derivatives
-vec2 dHdxyDerivatives(sampler2D derivative_map, vec2 uv)
+vec2 dHdxyDerivatives(sampler2D derivative_map, vec2 uv, float scale)
 {
 	vec2 dSTdx = dFdxFine(uv);
 	vec2 dSTdy = dFdyFine(uv);
-	vec2 dBdst = 2 * texture(derivative_map, uv).xy - vec2(1);
+	vec2 dBdst = scale * (2 * texture(derivative_map, uv).xy - 1);
 	float dBx = dBdst.x * dSTdx.x + dBdst.y * dSTdx.y;
 	float dBy = dBdst.x * dSTdy.x + dBdst.y * dSTdy.y;
 
