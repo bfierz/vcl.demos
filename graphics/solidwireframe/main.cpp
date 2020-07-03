@@ -30,18 +30,6 @@
 // C++ standard library
 #include <iostream>
 
-// GSL
-#include <gsl/gsl>
-
-// NanoGUI
-#include <nanogui/combobox.h>
-#include <nanogui/label.h>
-#include <nanogui/layout.h>
-#include <nanogui/screen.h>
-#include <nanogui/slider.h>
-#include <nanogui/textbox.h>
-#include <nanogui/window.h>
-
 // VCL
 #include <vcl/geometry/meshfactory.h>
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
@@ -52,6 +40,9 @@
 #include <vcl/graphics/runtime/opengl/graphicsengine.h>
 #include <vcl/graphics/camera.h>
 #include <vcl/graphics/trackballcameracontroller.h>
+
+#include "../application.h"
+#include "../basescene.h"
 
 #include "shaders/solidwireframe.h"
 #include "solidwireframe.vert.spv.h"
@@ -64,14 +55,12 @@ extern "C"
 	_declspec(dllexport) unsigned int NvOptimusEnablement = 0x00000001;
 }
 
-class SolidWireframeExample : public nanogui::Screen
+class SolidWireframeExample : public BaseScene
 {
+	VCL_DECLARE_METAOBJECT(SolidWireframeExample)
 public:
 	SolidWireframeExample()
-	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example")
 	{
-		using namespace nanogui;
-
 		using Vcl::Graphics::Runtime::OpenGL::Buffer;
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
 		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
@@ -100,23 +89,6 @@ public:
 		if (!Shader::isSpirvSupported())
 			throw std::runtime_error("SPIR-V is not supported.");
 
-		Window *window = new Window(this, "Detail Method");
-		window->setPosition(Vector2i(15, 15));
-		window->setLayout(new GroupLayout());
-
-		Widget *panel = new Widget(window);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-
-		new Label(panel, "Method", "sans-bold");
-		
-		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
-		method_selection->setCallback([this](int idx)
-		{
-			_bumpMethod = idx;
-		});
-		
-		performLayout();
-
 		// Initialize content
 		_camera = std::make_unique<Camera>(std::make_shared<Vcl::Graphics::OpenGL::MatrixFactory>());
 		_camera->encloseInFrustum({ 0, 0, 0 }, { 0, -1, 1 }, 2.0f, { 0, 0, 1 });
@@ -124,20 +96,21 @@ public:
 		_cameraController = std::make_unique<Vcl::Graphics::TrackballCameraController>();
 		_cameraController->setCamera(_camera.get());
 
-		// Shader specializations
-		//std::array<unsigned int, 1> indices = { 0 };
-		//std::array<unsigned int, 1> solid_wireframe_shader = { 0 };
-
 		// Initialize solid-wireframe shader
 		InputLayoutDescription layout =
 		{
-			{ "position", SurfaceFormat::R32G32B32_FLOAT, 0, 0,  0, VertexDataClassification::VertexDataPerObject, 0 },
-			{ "normal",   SurfaceFormat::R32G32B32_FLOAT, 0, 0, 12, VertexDataClassification::VertexDataPerObject, 0 },
+			{
+				{ 0, 12, VertexDataClassification::VertexDataPerObject },
+				{ 1, 12, VertexDataClassification::VertexDataPerObject }},
+			{
+				{ "position", SurfaceFormat::R32G32B32_FLOAT, 1, 0,  0 },
+				{ "normal",   SurfaceFormat::R32G32B32_FLOAT, 1, 0, 12 },
+			}
 		};
 
 		Shader solid_wireframe_vert{ ShaderType::VertexShader,   0, SolidWireframeVert };
 		Shader solid_wireframe_geom{ ShaderType::GeometryShader, 0, SolidWireframeGeom };
-		Shader solid_wireframe_frag{ ShaderType::FragmentShader, 0, SolidWireframeFrag };//, indices, solid_wireframe_shader };
+		Shader solid_wireframe_frag{ ShaderType::FragmentShader, 0, SolidWireframeFrag };
 		PipelineStateDescription solid_wireframe_ps_desc;
 		solid_wireframe_ps_desc.InputLayout = layout;
 		solid_wireframe_ps_desc.VertexShader = &solid_wireframe_vert;
@@ -184,35 +157,37 @@ public:
 		_nrMeshVertices = vb.size();
 	}
 
-public:
-	bool mouseButtonEvent(const nanogui::Vector2i &p, int button, bool down, int modifiers) override
-	{
-		if (Widget::mouseButtonEvent(p, button, down, modifiers))
-			return true;
+	Colour3f colour() const { return _colour; }
+	void setColour(Colour3f val) { _colour = val; }
 
-		if (down)
+	float thickness() const { return _thickness; }
+	void setThickness(float val) { _thickness = val; }
+
+	float smoothing() const { return _smoothing; }
+	void setSmoothing(float val) { _smoothing = val; }
+
+public:
+	void onMouseButton(Application& app, int button, int action, int mods)
+	{
+		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 		{
-			_cameraController->startRotate((float) p.x() / (float) width(), (float) p.y() / (float) height());
+			double x, y;
+			glfwGetCursorPos(app.window(), &x, &y);
+			_cameraController->startRotate((float)x / (float)app.width(), (float)y / (float)app.height());
 		}
 		else
 		{
 			_cameraController->endRotate();
 		}
-
-		return true;
 	}
 
-	bool mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int button, int modifiers) override
+	void onMouseMove(Application& app, double xpos, double ypos)
 	{
-		if (Widget::mouseMotionEvent(p, rel, button, modifiers))
-			return true;
-
-		_cameraController->rotate((float)p.x() / (float)width(), (float)p.y() / (float)height());
-		return true;
+		_cameraController->rotate((float)xpos / (float)app.width(), (float)ypos / (float)app.height());
 	}
 
 public:
-	void drawContents() override
+	void draw(Application& app) override
 	{
 		_engine->beginFrame();
 
@@ -221,7 +196,7 @@ public:
 
 		// View on the scene
 		auto cbuf_camera = _engine->requestPerFrameConstantBuffer<PerFrameCameraData>();
-		cbuf_camera->Viewport = vec4(0, 0, width(), height());
+		cbuf_camera->Viewport = vec4(0, 0, app.width(), app.height());
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
@@ -237,7 +212,7 @@ private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps,
 		const Eigen::Matrix4f& M
 	)
@@ -251,12 +226,21 @@ private:
 		cbuf_transform->NormalMatrix = mat4((_camera->view() * M).inverse().transpose());
 		cmd_queue->setConstantBuffer(1, cbuf_transform);
 
+		// View on the scene
+		auto cbuf_config= cmd_queue->requestPerFrameConstantBuffer<SolidWireframeData>();
+		cbuf_config->Colour.x = _colour.r;
+		cbuf_config->Colour.y = _colour.g;
+		cbuf_config->Colour.z = _colour.b;
+		cbuf_config->Smoothing = _smoothing;
+		cbuf_config->Thickness = _thickness;
+		cmd_queue->setConstantBuffer(2, cbuf_config);
+
 		// Render the quad
 		cmd_queue->setVertexBuffer(0, *_meshGeometry, 0, 24);
 		cmd_queue->setPrimitiveType(primitive_type, 3);
 		cmd_queue->draw(_nrMeshVertices);
 	}
-
+	
 private:
 	std::unique_ptr<Vcl::Graphics::Runtime::GraphicsEngine> _engine;
 
@@ -266,39 +250,53 @@ private:
 private:
 	std::unique_ptr<Vcl::Graphics::Camera> _camera;
 
-	//! Selected bump-mapping technique
-	int _bumpMethod{ 0 };
-	
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _solidwireframePS;
 
-	/// Geometry (position, normal)
+	//! Geometry (position, normal)
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Buffer> _meshGeometry;
 
-	/// Number of vertices
+	//! Number of vertices
 	uint32_t _nrMeshVertices;
+
+	//! Colour of the overlay
+	Colour3f _colour{ 0, 0, 0 };
+
+	//! Smoothness of the generated overlay
+	float _smoothing{ 1.0f };
+
+	//! Thickness of the lines
+	float _thickness{ 1.0f };
 };
+
+VCL_RTTI_BASES(SolidWireframeExample, BaseScene)
+
+VCL_RTTI_CTOR_TABLE_BEGIN(SolidWireframeExample)
+	Vcl::RTTI::Constructor<SolidWireframeExample>()
+VCL_RTTI_CTOR_TABLE_END(SolidWireframeExample)
+
+VCL_RTTI_ATTR_TABLE_BEGIN(SolidWireframeExample)
+	Vcl::RTTI::Attribute<SolidWireframeExample, Colour3f>{"Colour", &SolidWireframeExample::colour, &SolidWireframeExample::setColour},
+	Vcl::RTTI::Attribute<SolidWireframeExample, float>{"Smoothing", &SolidWireframeExample::smoothing, &SolidWireframeExample::setSmoothing},
+	Vcl::RTTI::Attribute<SolidWireframeExample, float>{"Thickness", &SolidWireframeExample::thickness, &SolidWireframeExample::setThickness}
+VCL_RTTI_ATTR_TABLE_END(SolidWireframeExample)
+
+VCL_DEFINE_METAOBJECT(SolidWireframeExample)
+{
+	VCL_RTTI_REGISTER_BASES(SolidWireframeExample);
+	VCL_RTTI_REGISTER_CTORS(SolidWireframeExample);
+	VCL_RTTI_REGISTER_ATTRS(SolidWireframeExample);
+}
 
 int main(int /* argc */, char ** /* argv */)
 {
-	try
-	{
-		nanogui::init();
+	Application app{ "VCL Solid Wireframe Example", 768, 768 };
 
-		{
-			nanogui::ref<SolidWireframeExample> app = new SolidWireframeExample();
-			app->drawAll();
-			app->setVisible(true);
-			nanogui::mainloop();
-		}
+	// Demo content
+	SolidWireframeExample scene;
+	app.setMouseButtonCallback([&scene](Application& app, int button, int action, int mods) {scene.onMouseButton(app, button, action, mods); });
+	app.setMouseMoveCallback([&scene](Application& app, double xpos, double ypos) {scene.onMouseMove(app, xpos, ypos); });
+	app.setSceneDrawCallback([&scene](Application& app) {scene.draw(app); });
+	app.setUIDrawCallback([&scene](Application& app) {scene.drawUI(app); });
 
-		nanogui::shutdown();
-	}
-	catch (const std::runtime_error &e)
-	{
-		std::string error_msg = std::string("Caught a fatal error: ") + std::string(e.what());
-		std::cerr << error_msg << std::endl;
-		return -1;
-	}
-
-	return 0;
+	return app.run();
 }

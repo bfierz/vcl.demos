@@ -30,19 +30,8 @@
 // C++ standard library
 #include <iostream>
 
-// GSL
-#include <gsl/gsl>
-
-// NanoGUI
-#include <nanogui/combobox.h>
-#include <nanogui/label.h>
-#include <nanogui/layout.h>
-#include <nanogui/screen.h>
-#include <nanogui/slider.h>
-#include <nanogui/textbox.h>
-#include <nanogui/window.h>
-
 // VCL
+#include <vcl/core/enum.h>
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
 #include <vcl/graphics/opengl/context.h>
 #include <vcl/graphics/runtime/opengl/resource/shader.h>
@@ -52,6 +41,9 @@
 #include <vcl/graphics/runtime/opengl/graphicsengine.h>
 #include <vcl/graphics/camera.h>
 #include <vcl/graphics/trackballcameracontroller.h>
+
+#include "../application.h"
+#include "../basescene.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -70,16 +62,26 @@ extern "C"
 
 using ImageType = std::unique_ptr<uint8_t[], void(*)(void*)>;
 
-class WrinkledSurfacesExample : public nanogui::Screen
+VCL_DECLARE_ENUM(Scene,
+	Pyramid, 
+	Wall,
+	Dome
+)
+
+VCL_DECLARE_ENUM(DetailMethod,
+	None,
+	ObjectSpace,
+	TangentSpace,
+	Mikkelsen,
+	Displacements
+)
+
+class WrinkledSurfacesExample : public BaseScene
 {
+	VCL_DECLARE_METAOBJECT(WrinkledSurfacesExample)
 public:
 	WrinkledSurfacesExample()
-	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example", 
-		true, false, 8, 8, 24, 8, 0,
-		4, 6)
 	{
-		using namespace nanogui;
-
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
 		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
 		using Vcl::Graphics::Runtime::OpenGL::Sampler;
@@ -103,33 +105,6 @@ public:
 		// Check availability of features
 		if (!Shader::isSpirvSupported())
 			throw std::runtime_error("SPIR-V is not supported.");
-
-		Window *window = new Window(this, "Detail Method");
-		window->setPosition(Vector2i(15, 15));
-		window->setLayout(new GroupLayout());
-
-		Widget* vertical = new Widget(window);
-		vertical->setLayout(new BoxLayout(Orientation::Vertical, Alignment::Middle, 0, 20));
-
-		Widget *panel = new Widget(vertical);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-		new Label(panel, "Scene", "sans-bold");
-		auto* scene_selection = new ComboBox(panel, { "Pyramid", "Wall", "Dome" });
-		scene_selection->setCallback([this](int idx)
-		{
-			_scene = idx;
-		});
-
-		panel = new Widget(vertical);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-		new Label(panel, "Method", "sans-bold");
-		auto* method_selection = new ComboBox(panel, { "None", "Object Space", "Tangent Space", "Mikkelsen", "Displacements"});
-		method_selection->setCallback([this](int idx)
-		{
-			_bumpMethod = idx;
-		});
-		
-		performLayout();
 
 		// Initialize content
 		_camera = std::make_unique<Camera>(std::make_shared<Vcl::Graphics::OpenGL::MatrixFactory>());
@@ -206,7 +181,7 @@ public:
 		_linearSampler = std::make_unique<Sampler>(desc);
 
 		// Load texture resources
-		auto textures = createPyramidTextures(2, 0.1f, 256, 16);
+		auto textures = createPyramidTextures(2, 0.1f, 256, 8);
 		_diffuseMap  [0] = std::move(textures[0]);
 		_normalObjMap[0] = std::move(textures[1]);
 		_normalTanMap[0] = std::move(textures[2]);
@@ -223,35 +198,33 @@ public:
 		_heightMap   [2] = loadTexture("textures/dome/height.png");
 	}
 
-public:
-	bool mouseButtonEvent(const nanogui::Vector2i &p, int button, bool down, int modifiers) override
-	{
-		if (Widget::mouseButtonEvent(p, button, down, modifiers))
-			return true;
+	Scene scene() const { return _scene; }
+	void setScene(Scene scene) { _scene = scene; }
+	DetailMethod detailMethod() const { return _detailMethod; }
+	void setDetailMethod(DetailMethod method) { _detailMethod = method; }
 
-		if (down)
+public:
+	void onMouseButton(Application& app, int button, int action, int mods)
+	{
+		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS)
 		{
-			_cameraController->startRotate((float) p.x() / (float) width(), (float) p.y() / (float) height());
+			double x, y;
+			glfwGetCursorPos(app.window(), &x, &y);
+			_cameraController->startRotate((float) x / (float) app.width(), (float) y / (float) app.height());
 		}
 		else
 		{
 			_cameraController->endRotate();
 		}
-
-		return true;
 	}
-
-	bool mouseMotionEvent(const nanogui::Vector2i &p, const nanogui::Vector2i &rel, int button, int modifiers) override
+	
+	void onMouseMove(Application& app, double xpos, double ypos)
 	{
-		if (Widget::mouseMotionEvent(p, rel, button, modifiers))
-			return true;
-
-		_cameraController->rotate((float)p.x() / (float)width(), (float)p.y() / (float)height());
-		return true;
+		_cameraController->rotate((float)xpos / (float)app.width(), (float)ypos / (float)app.height());
 	}
 
 public:
-	void drawContents() override
+	void draw(Application& app) override
 	{
 		_engine->beginFrame();
 
@@ -260,28 +233,28 @@ public:
 
 		// View on the scene
 		auto cbuf_camera = _engine->requestPerFrameConstantBuffer<PerFrameCameraData>();
-		cbuf_camera->Viewport = vec4(0, 0, (float)width(), (float)height());
+		cbuf_camera->Viewport = vec4(0, 0, (float)app.width(), (float)app.height());
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
 		_engine->setConstantBuffer(0, cbuf_camera);
 
 		Eigen::Matrix4f M = _cameraController->currObjectTransformation();
-		switch (_bumpMethod)
+		switch (_detailMethod)
 		{
-		case 0:
+		case DetailMethod::None:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _simplePS, M);
 			break;
-		case 1:
+		case DetailMethod::ObjectSpace:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _objectNormalmapPS, M);
 			break;
-		case 2:
+		case DetailMethod::TangentSpace:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _tangentNormalmapPS, M);
 			break;
-		case 3:
+		case DetailMethod::Mikkelsen:
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _perturbNormalPS, M);
 			break;
-		case 4:
+		case DetailMethod::Displacements:
 		{
 			auto cbuf_tess = _engine->requestPerFrameConstantBuffer<TessellationData>();
 			cbuf_tess->Level = 64;
@@ -301,7 +274,7 @@ private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps,
 		const Eigen::Matrix4f& M
 	)
@@ -322,10 +295,10 @@ private:
 		cmd_queue->setSampler(3, *_linearSampler);
 
 		// Textures
-		cmd_queue->setTexture(0, *_diffuseMap[_scene]);
-		cmd_queue->setTexture(1, *_heightMap[_scene]);
-		cmd_queue->setTexture(2, *_normalObjMap[_scene]);
-		cmd_queue->setTexture(3, *_normalTanMap[_scene]);
+		cmd_queue->setTexture(0, *_diffuseMap[(int)_scene]);
+		cmd_queue->setTexture(1, *_heightMap[(int)_scene]);
+		cmd_queue->setTexture(2, *_normalObjMap[(int)_scene]);
+		cmd_queue->setTexture(3, *_normalTanMap[(int)_scene]);
 
 		// Render the quad
 		cmd_queue->setPrimitiveType(primitive_type, 3);
@@ -335,7 +308,7 @@ private:
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> createTexture
 	(
 		uint32_t w, uint32_t h, Vcl::Graphics::SurfaceFormat tgt_fmt,
-		void* src, Vcl::Graphics::SurfaceFormat src_fmt
+		const void* src, Vcl::Graphics::SurfaceFormat src_fmt
 	) const
 	{
 		using Vcl::Graphics::Runtime::OpenGL::Texture2D;
@@ -353,7 +326,7 @@ private:
 		diffuse_res.Width = w;
 		diffuse_res.Height = h;
 		diffuse_res.Format = src_fmt;
-		diffuse_res.Data = src;
+		diffuse_res.Data = stdext::make_span(reinterpret_cast<const uint8_t*>(src), w*h*Vcl::Graphics::sizeInBytes(src_fmt));
 
 		return std::make_unique<Texture2D>(diffuse_tex_desc, &diffuse_res);
 	}
@@ -514,10 +487,10 @@ private:
 	std::unique_ptr<Vcl::Graphics::Camera> _camera;
 
 	//! Selected scene
-	int _scene{ 0 };
+	Scene _scene{ Scene::Pyramid };
 
 	//! Selected bump-mapping technique
-	int _bumpMethod{ 0 };
+	DetailMethod _detailMethod{ DetailMethod::None };
 
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _diffuseMap;
 	std::array<std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D>, 3> _normalObjMap;
@@ -533,27 +506,33 @@ private:
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _displacementPS;
 };
 
+VCL_RTTI_BASES(WrinkledSurfacesExample, BaseScene)
+
+VCL_RTTI_CTOR_TABLE_BEGIN(WrinkledSurfacesExample)
+	Vcl::RTTI::Constructor<WrinkledSurfacesExample>()
+VCL_RTTI_CTOR_TABLE_END(WrinkledSurfacesExample)
+
+VCL_RTTI_ATTR_TABLE_BEGIN(WrinkledSurfacesExample)
+	Vcl::RTTI::Attribute<WrinkledSurfacesExample, Scene>{"Scene", &WrinkledSurfacesExample::scene, &WrinkledSurfacesExample::setScene},
+	Vcl::RTTI::Attribute<WrinkledSurfacesExample, DetailMethod>{"DetailMethod", &WrinkledSurfacesExample::detailMethod, &WrinkledSurfacesExample::setDetailMethod}
+VCL_RTTI_ATTR_TABLE_END(WrinkledSurfacesExample)
+
+VCL_DEFINE_METAOBJECT(WrinkledSurfacesExample)
+{
+	VCL_RTTI_REGISTER_BASES(WrinkledSurfacesExample);
+	VCL_RTTI_REGISTER_CTORS(WrinkledSurfacesExample);
+	VCL_RTTI_REGISTER_ATTRS(WrinkledSurfacesExample);
+}
 int main(int /* argc */, char ** /* argv */)
 {
-	try
-	{
-		nanogui::init();
+	Application app{ "VCL Wrinkled Surfaces Example", 768, 768 };
 
-		{
-			nanogui::ref<WrinkledSurfacesExample> app = new WrinkledSurfacesExample();
-			app->drawAll();
-			app->setVisible(true);
-			nanogui::mainloop();
-		}
+	// Demo content
+	WrinkledSurfacesExample scene;
+	app.setMouseButtonCallback([&scene](Application& app, int button, int action, int mods) {scene.onMouseButton(app, button, action, mods);});
+	app.setMouseMoveCallback([&scene](Application& app, double xpos, double ypos) {scene.onMouseMove(app, xpos, ypos);});
+	app.setSceneDrawCallback([&scene](Application& app) {scene.draw(app); });
+	app.setUIDrawCallback([&scene](Application& app) {scene.drawUI(app); });
 
-		nanogui::shutdown();
-	}
-	catch (const std::runtime_error &e)
-	{
-		std::string error_msg = std::string("Caught a fatal error: ") + std::string(e.what());
-		std::cerr << error_msg << std::endl;
-		return -1;
-	}
-
-	return 0;
+	return app.run();
 }

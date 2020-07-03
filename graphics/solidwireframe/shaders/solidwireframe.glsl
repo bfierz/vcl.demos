@@ -22,49 +22,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#ifndef GLSL_SOLIDWIREFRAME_H
-#define GLSL_SOLIDWIREFRAME_H
+#ifndef GLSL_SOLIDWIREFRAME
+#define GLSL_SOLIDWIREFRAME
 
-#include <vcl/graphics/opengl/glsl/uniformbuffer.h>
-
-////////////////////////////////////////////////////////////////////////////////
-// Shader constants
-////////////////////////////////////////////////////////////////////////////////
-// Define common buffers
-UNIFORM_BUFFER(0) PerFrameCameraData
+// Generate a solid wireframe based on the barycentric coordinates of the
+// triangle. Base concept can be found here:
+// https://catlikecoding.com/unity/tutorials/advanced-rendering/flat-and-wireframe-shading/
+vec3 solidWireframe
+(
+	vec3 baryc, vec3 ground_colour,
+	float smoothing, float thickness, vec3 wireframe_colour
+)
 {
-	// Viewport (x, y, w, h)
-	vec4 Viewport;
+	vec3 deltas = fwidth(baryc);
+	vec3 s = deltas * smoothing;
+	vec3 t = deltas * thickness;
+	baryc = smoothstep(t, t+ s, baryc);
 
-	// Frustum (tan(fov / 2), aspect_ratio, near, far)
-	vec4 Frustum;
+	float min_baryc = min(baryc.x, min(baryc.y, baryc.z));
+	return mix(wireframe_colour, ground_colour, min_baryc);
+}
 
-	// Transform from world to view space
-	mat4 ViewMatrix;
-
-	// Transform from view to screen space
-	mat4 ProjectionMatrix;
-};
-
-UNIFORM_BUFFER(1) ObjectTransformData
-{
-	// Transform to world space
-	mat4 ModelMatrix;
-
-	// Transform normals to world space
-	mat4 NormalMatrix;
-};
-
-UNIFORM_BUFFER(2) SolidWireframeData
-{
-	// Colour of the wireframe
-	vec3_u Colour;
-
-	// Transition range
-	float Smoothing;
-
-	// Thickness of wireframe
-	float Thickness;
-};
-
-#endif // GLSL_SOLIDWIREFRAME_H
+#endif // GLSL_SOLIDWIREFRAME

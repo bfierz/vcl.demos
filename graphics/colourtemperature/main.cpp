@@ -25,24 +25,14 @@
 
 // VCL configuration
 #include <vcl/config/global.h>
+#include <vcl/config/eigen.h>
 #include <vcl/config/opengl.h>
 
 // C++ standard library
 #include <chrono>
+#include <exception>
+#include <functional>
 #include <iostream>
-
-// GSL
-#include <gsl/gsl>
-
-// NanoGUI
-#include <nanogui/checkbox.h>
-#include <nanogui/combobox.h>
-#include <nanogui/label.h>
-#include <nanogui/layout.h>
-#include <nanogui/screen.h>
-#include <nanogui/slider.h>
-#include <nanogui/textbox.h>
-#include <nanogui/window.h>
 
 // VCL
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
@@ -53,6 +43,9 @@
 #include <vcl/graphics/runtime/opengl/graphicsengine.h>
 #include <vcl/graphics/camera.h>
 #include <vcl/graphics/trackballcameracontroller.h>
+
+#include "../application.h"
+#include "../basescene.h"
 
 #include "shaders/temperature.h"
 #include "temperature.vert.spv.h"
@@ -66,14 +59,12 @@ extern "C"
 
 using ImageType = std::unique_ptr<uint8_t[], void(*)(void*)>;
 
-class WrinkledSurfacesExample : public nanogui::Screen
+class WrinkledSurfacesExample : public BaseScene
 {
+	VCL_DECLARE_METAOBJECT(WrinkledSurfacesExample)
 public:
 	WrinkledSurfacesExample()
-	: nanogui::Screen(Eigen::Vector2i(768, 768), "VCL Wrinkled Surfaces Example")
 	{
-		using namespace nanogui;
-
 		using Vcl::Graphics::Runtime::OpenGL::PipelineState;
 		using Vcl::Graphics::Runtime::OpenGL::RasterizerState;
 		using Vcl::Graphics::Runtime::OpenGL::Shader;
@@ -95,48 +86,6 @@ public:
 		if (!Shader::isSpirvSupported())
 			throw std::runtime_error("SPIR-V is not supported.");
 
-		Window *window = new Window(this, "Colour Settings");
-		window->setPosition(Vector2i(15, 15));
-		window->setLayout(new GroupLayout());
-
-		Widget *panel = new Widget(window);
-		panel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 20));
-		
-		new Label(panel, "Colour Temperature", "sans-bold");
-		Slider *slider_temp = new Slider(panel);
-		slider_temp->setValue(_colour_temperature);
-		slider_temp->setFixedSize(Vector2i(60, 25));
-		slider_temp->setCallback([this](float val) -> bool
-		{
-			_colour_temperature = val;
-			return true;
-		});
-		
-		new Label(panel, "Colour Value", "sans-bold");
-		Slider *slider_val= new Slider(panel);
-		slider_val->setValue(_colour_value);
-		slider_val->setFixedSize(Vector2i(60, 25));
-		slider_val->setCallback([this](float val) -> bool
-		{
-			_colour_value = val;
-			return true;
-		});
-		
-		auto auto_box = new CheckBox(panel, "Auto", [this](bool val) -> bool
-		{
-			_animate = val;
-			if (val)
-			{
-				// Start a new animation timer
-				_animation_value = 0;
-				_last_check = std::chrono::high_resolution_clock::now().time_since_epoch();
-			}
-			return true;
-		});
-		auto_box->setChecked(_animate);
-		
-		performLayout();
-
 		// Initialize content
 		_camera = std::make_unique<Camera>(std::make_shared<Vcl::Graphics::OpenGL::MatrixFactory>());
 		_camera->encloseInFrustum({ 0, 0, 0 }, { 0, -1, 1 }, 2.0f, { 0, 0, 1 });
@@ -154,7 +103,7 @@ public:
 	}
 
 public:
-	void drawContents() override
+	void draw(Application& app) override
 	{
 		const std::chrono::nanoseconds time_increment = std::chrono::nanoseconds{ _animation_length } / 100;
 		const std::chrono::nanoseconds now = std::chrono::steady_clock::now().time_since_epoch();
@@ -187,12 +136,21 @@ public:
 		
 		_engine->endFrame();
 	}
+	
+	bool animate() const { return _animate; }
+	void setAnimate(bool a) { _animate = a; }
+
+	float colourTemperatur() const { return _colour_temperature; }
+	void setColourTemperatur(float t) { _colour_temperature = t; }
+
+	float colourValue() const { return _colour_value; }
+	void setColourValue(float v) { _colour_value = v; }
 
 private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps
 	)
 	{
@@ -234,27 +192,33 @@ private:
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::PipelineState> _temperaturePS;
 };
 
+VCL_RTTI_BASES(WrinkledSurfacesExample, BaseScene)
+
+VCL_RTTI_CTOR_TABLE_BEGIN(WrinkledSurfacesExample)
+	Vcl::RTTI::Constructor<WrinkledSurfacesExample>()
+VCL_RTTI_CTOR_TABLE_END(WrinkledSurfacesExample)
+
+VCL_RTTI_ATTR_TABLE_BEGIN(WrinkledSurfacesExample)
+	Vcl::RTTI::Attribute<WrinkledSurfacesExample, bool>{ "Animate", &WrinkledSurfacesExample::animate, &WrinkledSurfacesExample::setAnimate },
+	Vcl::RTTI::Attribute<WrinkledSurfacesExample, float>{ "ColourTemperature", &WrinkledSurfacesExample::colourTemperatur, &WrinkledSurfacesExample::setColourTemperatur },
+	Vcl::RTTI::Attribute<WrinkledSurfacesExample, float>{ "ColourValue", &WrinkledSurfacesExample::colourValue, &WrinkledSurfacesExample::setColourValue }
+VCL_RTTI_ATTR_TABLE_END(WrinkledSurfacesExample)
+
+VCL_DEFINE_METAOBJECT(WrinkledSurfacesExample)
+{
+	VCL_RTTI_REGISTER_BASES(WrinkledSurfacesExample);
+	VCL_RTTI_REGISTER_CTORS(WrinkledSurfacesExample);
+	VCL_RTTI_REGISTER_ATTRS(WrinkledSurfacesExample);
+}
+
 int main(int /* argc */, char ** /* argv */)
 {
-	try
-	{
-		nanogui::init();
+	Application app{ "VCL Wrinkled Surfaces Example", 768, 768 };
 
-		{
-			nanogui::ref<WrinkledSurfacesExample> app = new WrinkledSurfacesExample();
-			app->drawAll();
-			app->setVisible(true);
-			nanogui::mainloop();
-		}
-
-		nanogui::shutdown();
-	}
-	catch (const std::runtime_error &e)
-	{
-		std::string error_msg = std::string("Caught a fatal error: ") + std::string(e.what());
-		std::cerr << error_msg << std::endl;
-		return -1;
-	}
-
-	return 0;
+	// Demo content
+	WrinkledSurfacesExample scene;
+	app.setSceneDrawCallback([&scene](Application& app) {scene.draw(app);});
+	app.setUIDrawCallback([&scene](Application& app) {scene.drawUI(app);});
+	
+	return app.run();
 }

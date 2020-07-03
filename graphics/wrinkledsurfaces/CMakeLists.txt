@@ -6,15 +6,12 @@ message(STATUS "Configuring 'wrinkledsurfaces'")
 # GLSL compiler
 include(${VCL_SOURCE_DIR}/src/cmake/VCLCompileGLSL.cmake)
 
-# NanoGUI
-set(VCL_NANOGUI_INCLUDE CACHE PATH "Include directory of NanoGUI")
-set(VCL_NANOGUI_DEBUG_LIBRARY CACHE FILEPATH "NanoGUI library")
-set(VCL_NANOGUI_RELEASE_LIBRARY CACHE FILEPATH "NanoGUI library")
-
 # Find includes in corresponding build directories
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 
 set(INC
+	../application.h
+	../basescene.h
 	stb_image.h
 )
 
@@ -41,40 +38,41 @@ list(APPEND CURR_INC_DIRS ${CMAKE_CURRENT_SOURCE_DIR} ${CURR_INC_DIRS_0})
 
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.vert
+	"opengl"
 	"WrinkledSurfacesVert"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_0
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.tesc
+	"opengl"
 	"WrinkledSurfacesCont"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_1
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.tese
+	"opengl"
 	"WrinkledSurfacesEval"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_2
 )
 vclcompileglsl(
 	${PROJECT_SOURCE_DIR}/shaders/wrinkledsurfaces.frag
+	"opengl"
 	"WrinkledSurfacesFrag"
 	"${CURR_INC_DIRS}"
 	COMPILEDSHADERS_3
 )
 set(COMPILEDSHADERS ${COMPILEDSHADERS_0} ${COMPILEDSHADERS_1} ${COMPILEDSHADERS_2} ${COMPILEDSHADERS_3})
 
-# Include dependencies
-include_directories(${VCL_NANOGUI_INCLUDE})
-
 add_executable(wrinkledsurfaces ${SRC} ${INC} ${SHADERS} ${COMPILEDSHADERS})
 set_target_properties(wrinkledsurfaces PROPERTIES FOLDER graphics)
 
 target_link_libraries(wrinkledsurfaces
 	vcl_graphics
-	debug ${VCL_NANOGUI_DEBUG_LIBRARY}
-	optimized ${VCL_NANOGUI_RELEASE_LIBRARY}
+	glfw
+	imgui
 )
 
 # Copy the resources to the binary directory
