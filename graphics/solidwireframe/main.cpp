@@ -30,9 +30,6 @@
 // C++ standard library
 #include <iostream>
 
-// GSL
-#include <gsl/gsl>
-
 // VCL
 #include <vcl/geometry/meshfactory.h>
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
@@ -215,7 +212,7 @@ private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps,
 		const Eigen::Matrix4f& M
 	)
@@ -292,7 +289,7 @@ VCL_DEFINE_METAOBJECT(SolidWireframeExample)
 
 int main(int /* argc */, char ** /* argv */)
 {
-	Application app{ "VCL Wrinkled Surfaces Example", 768, 768 };
+	Application app{ "VCL Solid Wireframe Example", 768, 768 };
 
 	// Demo content
 	SolidWireframeExample scene;

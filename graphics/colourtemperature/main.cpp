@@ -34,9 +34,6 @@
 #include <functional>
 #include <iostream>
 
-// GSL
-#include <gsl/gsl>
-
 // VCL
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
 #include <vcl/graphics/opengl/context.h>
@@ -153,7 +150,7 @@ private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps
 	)
 	{

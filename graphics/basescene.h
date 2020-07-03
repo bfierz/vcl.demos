@@ -130,12 +130,12 @@ protected:
 			}
 			else
 			{
-				std::any value;
+				stdext::any value;
 				attr->get(&obj, value);
 
 				if (value.type() == typeid(bool))
 				{
-					auto* ui_value = std::any_cast<bool>(&value);
+					auto* ui_value = stdext::any_cast<bool>(&value);
 					if (ImGui::Checkbox(attr->name().data(), ui_value))
 					{
 						attr->set(&obj, value);
@@ -143,7 +143,7 @@ protected:
 				}
 				else if (value.type() == typeid(float))
 				{
-					auto* ui_value = std::any_cast<float>(&value);
+					auto* ui_value = stdext::any_cast<float>(&value);
 					if (ImGui::InputFloat(attr->name().data(), ui_value))
 					{
 						attr->set(&obj, value);
@@ -151,7 +151,7 @@ protected:
 				}
 				else if (value.type() == typeid(Colour3f))
 				{
-					auto* ui_value = std::any_cast<Colour3f>(&value);
+					auto* ui_value = stdext::any_cast<Colour3f>(&value);
 					if (ImGui::ColorEdit3(attr->name().data(), reinterpret_cast<float*>(ui_value)))
 					{
 						attr->set(&obj, value);

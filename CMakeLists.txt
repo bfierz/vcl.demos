@@ -66,7 +66,7 @@ if (VCL_DEMOS_STANDALONE_PROJECT)
 	option(VCL_BUILD_TESTS "" OFF)
 	option(VCL_BUILD_TOOLS "" ON)
 	option(VCL_OPENGL_SUPPORT "" ON)
-	add_subdirectory(${VCL_SOURCE_DIR}/src EXCLUDE_FROM_ALL)
+	add_subdirectory(${VCL_SOURCE_DIR} EXCLUDE_FROM_ALL)
 endif()
 
 # Add the windows library

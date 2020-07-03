@@ -30,9 +30,6 @@
 // C++ standard library
 #include <iostream>
 
-// GSL
-#include <gsl/gsl>
-
 // VCL
 #include <vcl/core/enum.h>
 #include <vcl/graphics/opengl/glsl/uniformbuffer.h>
@@ -277,7 +274,7 @@ private:
 	void renderScene
 	(
 		Vcl::Graphics::Runtime::PrimitiveType primitive_type,
-		gsl::not_null<Vcl::Graphics::Runtime::GraphicsEngine*> cmd_queue,
+		Vcl::Graphics::Runtime::GraphicsEngine* cmd_queue,
 		Vcl::ref_ptr<Vcl::Graphics::Runtime::PipelineState> ps,
 		const Eigen::Matrix4f& M
 	)
@@ -311,7 +308,7 @@ private:
 	std::unique_ptr<Vcl::Graphics::Runtime::OpenGL::Texture2D> createTexture
 	(
 		uint32_t w, uint32_t h, Vcl::Graphics::SurfaceFormat tgt_fmt,
-		void* src, Vcl::Graphics::SurfaceFormat src_fmt
+		const void* src, Vcl::Graphics::SurfaceFormat src_fmt
 	) const
 	{
 		using Vcl::Graphics::Runtime::OpenGL::Texture2D;
@@ -329,7 +326,7 @@ private:
 		diffuse_res.Width = w;
 		diffuse_res.Height = h;
 		diffuse_res.Format = src_fmt;
-		diffuse_res.Data = src;
+		diffuse_res.Data = stdext::make_span(reinterpret_cast<const uint8_t*>(src), w*h*Vcl::Graphics::sizeInBytes(src_fmt));
 
 		return std::make_unique<Texture2D>(diffuse_tex_desc, &diffuse_res);
 	}

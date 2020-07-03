@@ -64,7 +64,7 @@ add_executable(solidwireframe ${SRC} ${INC} ${SHADERS} ${COMPILEDSHADERS})
 set_target_properties(solidwireframe PROPERTIES FOLDER graphics)
 
 target_link_libraries(solidwireframe
-	vcl_geometry
+	vcl.geometry
 	vcl_graphics
 	glfw
 	imgui
