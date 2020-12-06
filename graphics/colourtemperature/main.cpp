@@ -130,7 +130,7 @@ public:
 			cbuf_temp->Temperature = 1000 + (5500 - 1000) * _colour_temperature;
 			cbuf_temp->Value = 0.5f + 0.5f * _colour_value;
 		}
-		_engine->setConstantBuffer(0, cbuf_temp);
+		_engine->setConstantBuffer(0, std::move(cbuf_temp));
 
 		renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _temperaturePS);
 		

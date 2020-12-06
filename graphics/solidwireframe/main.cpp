@@ -69,12 +69,11 @@ public:
 		using Vcl::Graphics::Runtime::OpenGL::ShaderProgram;
 		using Vcl::Graphics::Runtime::BufferDescription;
 		using Vcl::Graphics::Runtime::BufferInitData;
+		using Vcl::Graphics::Runtime::BufferUsage;
 		using Vcl::Graphics::Runtime::FillModeMethod;
 		using Vcl::Graphics::Runtime::InputLayoutDescription;
 		using Vcl::Graphics::Runtime::PipelineStateDescription;
 		using Vcl::Graphics::Runtime::RasterizerDescription;
-		using Vcl::Graphics::Runtime::ResourceAccess;
-		using Vcl::Graphics::Runtime::ResourceUsage;
 		using Vcl::Graphics::Runtime::ShaderType;
 		using Vcl::Graphics::Runtime::VertexDataClassification;
 		using Vcl::Graphics::Camera;
@@ -145,15 +144,14 @@ public:
 		}
 
 		Vcl::Graphics::Runtime::BufferDescription buffer_desc;
-		buffer_desc.CPUAccess = ResourceAccess::Write;
-		buffer_desc.Usage = ResourceUsage::Default;
+		buffer_desc.Usage = BufferUsage::Vertex;
 		buffer_desc.SizeInBytes = static_cast<uint32_t>(vb.size() * sizeof(Vertex));
 
 		BufferInitData buffer_data;
 		buffer_data.Data = vb.data();
 		buffer_data.SizeInBytes = static_cast<uint32_t>(vb.size() * sizeof(Vertex));
 
-		_meshGeometry = std::make_unique<Buffer>(buffer_desc, false, false, &buffer_data);
+		_meshGeometry = std::make_unique<Buffer>(buffer_desc, &buffer_data);
 		_nrMeshVertices = vb.size();
 	}
 
@@ -200,7 +198,7 @@ public:
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
-		_engine->setConstantBuffer(0, cbuf_camera);
+		_engine->setConstantBuffer(0, std::move(cbuf_camera));
 
 		Eigen::Matrix4f M = _cameraController->currObjectTransformation();
 		renderScene(Vcl::Graphics::Runtime::PrimitiveType::Trianglelist, _engine.get(), _solidwireframePS, M);
@@ -224,7 +222,7 @@ private:
 		auto cbuf_transform = cmd_queue->requestPerFrameConstantBuffer<ObjectTransformData>();
 		cbuf_transform->ModelMatrix = M;
 		cbuf_transform->NormalMatrix = mat4((_camera->view() * M).inverse().transpose());
-		cmd_queue->setConstantBuffer(1, cbuf_transform);
+		cmd_queue->setConstantBuffer(1, std::move(cbuf_transform));
 
 		// View on the scene
 		auto cbuf_config= cmd_queue->requestPerFrameConstantBuffer<SolidWireframeData>();
@@ -233,7 +231,7 @@ private:
 		cbuf_config->Colour.z = _colour.b;
 		cbuf_config->Smoothing = _smoothing;
 		cbuf_config->Thickness = _thickness;
-		cmd_queue->setConstantBuffer(2, cbuf_config);
+		cmd_queue->setConstantBuffer(2, std::move(cbuf_config));
 
 		// Render the quad
 		cmd_queue->setVertexBuffer(0, *_meshGeometry, 0, 24);

@@ -237,7 +237,7 @@ public:
 		cbuf_camera->Frustum;
 		cbuf_camera->ViewMatrix = mat4(_camera->view());
 		cbuf_camera->ProjectionMatrix = mat4(_camera->projection());
-		_engine->setConstantBuffer(0, cbuf_camera);
+		_engine->setConstantBuffer(0, std::move(cbuf_camera));
 
 		Eigen::Matrix4f M = _cameraController->currObjectTransformation();
 		switch (_detailMethod)
@@ -260,7 +260,7 @@ public:
 			cbuf_tess->Level = 64;
 			cbuf_tess->Midlevel = 127.0f/255.0f;
 			cbuf_tess->HeightScale = 0.01f;
-			_engine->setConstantBuffer(2, cbuf_tess);
+			_engine->setConstantBuffer(2, std::move(cbuf_tess));
 
 			renderScene(Vcl::Graphics::Runtime::PrimitiveType::Patch, _engine.get(), _displacementPS, M);
 			break;
@@ -286,7 +286,7 @@ private:
 		auto cbuf_transform = cmd_queue->requestPerFrameConstantBuffer<ObjectTransformData>();
 		cbuf_transform->ModelMatrix = M;
 		cbuf_transform->NormalMatrix = mat4((_camera->view() * M).inverse().transpose());
-		cmd_queue->setConstantBuffer(1, cbuf_transform);
+		cmd_queue->setConstantBuffer(1, std::move(cbuf_transform));
 
 		// Samplers
 		cmd_queue->setSampler(0, *_linearSampler);
